@@ -5,6 +5,7 @@ from typing import Optional
 from dataclasses import dataclass
 
 from .gmail_client import GmailClient, EmailMessage
+from .filter import EmailFilter, get_email_filter
 from ..database.repository import Repository, get_repository
 from ..database.models import (
     InfluencerStatus,
@@ -43,11 +44,13 @@ class EmailProcessor:
         repository: Optional[Repository] = None,
         classifier: Optional[EmailClassifier] = None,
         responder: Optional[ResponseGenerator] = None,
+        email_filter: Optional[EmailFilter] = None,
     ):
         self.gmail = gmail_client or GmailClient()
         self.repo = repository or get_repository()
         self.classifier = classifier or EmailClassifier()
         self.responder = responder or ResponseGenerator()
+        self.email_filter = email_filter or get_email_filter()
         self.pricing = PricingConfig()
         self.config = get_app_config()
 
@@ -65,14 +68,39 @@ class EmailProcessor:
         logger.info(f"Found {len(messages)} unread messages")
 
         processed = []
+        skipped = 0
+
         for message in messages:
+            # ========== FILTERING STEP ==========
+            # Check if this email should be processed at all
+            filter_result = self.email_filter.should_process(
+                from_email=message.from_email,
+                subject=message.subject,
+                body=message.body,
+                thread_id=message.thread_id,
+            )
+
+            if not filter_result.should_process:
+                logger.debug(
+                    f"Skipping email from {message.from_email}: {filter_result.reason}"
+                )
+                skipped += 1
+                # Mark as read so we don't check it again
+                self.gmail.mark_as_read(message.message_id)
+                continue
+
+            logger.info(
+                f"Processing email from {message.from_email}: {filter_result.reason}"
+            )
+
+            # ========== PROCESSING STEP ==========
             result = self._process_single_email(message)
             if result:
                 processed.append(result)
                 # Mark as read after processing
                 self.gmail.mark_as_read(message.message_id)
 
-        logger.info(f"Processed {len(processed)} emails")
+        logger.info(f"Processed {len(processed)} emails, skipped {skipped} non-influencer emails")
         return processed
 
     def _process_single_email(self, message: EmailMessage) -> Optional[ProcessedEmail]:

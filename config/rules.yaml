@@ -1,5 +1,134 @@
 # Negotiation Rules and Automation Logic
 
+# ==================== EMAIL FILTERING ====================
+# These rules determine which emails should be processed by the system.
+# The system should ONLY process emails related to influencer marketing negotiations.
+
+email_filtering:
+  # Emails from these domains are ALWAYS ignored (system emails, internal, etc.)
+  blocked_domains:
+    - "datadog.com"
+    - "datadoghq.com"
+    - "github.com"
+    - "gitlab.com"
+    - "slack.com"
+    - "google.com"
+    - "googleapis.com"
+    - "amazonses.com"
+    - "sendgrid.net"
+    - "mailchimp.com"
+    - "mailgun.org"
+    - "intercom.io"
+    - "zendesk.com"
+    - "freshdesk.com"
+    - "atlassian.com"
+    - "jira.com"
+    - "trello.com"
+    - "asana.com"
+    - "notion.so"
+    - "linear.app"
+    - "stripe.com"
+    - "paypal.com"
+    - "linkedin.com"
+    - "facebook.com"
+    - "twitter.com"
+    - "x.com"
+    - "instagram.com"  # Notifications, not DMs
+    - "tiktok.com"     # Notifications, not DMs
+    - "youtube.com"    # Notifications, not DMs
+
+  # Email addresses matching these patterns are ALWAYS ignored
+  blocked_sender_patterns:
+    - "noreply@"
+    - "no-reply@"
+    - "notifications@"
+    - "notification@"
+    - "alerts@"
+    - "alert@"
+    - "mailer-daemon@"
+    - "postmaster@"
+    - "support@"
+    - "help@"
+    - "info@"
+    - "newsletter@"
+    - "news@"
+    - "marketing@"
+    - "promo@"
+    - "promotions@"
+    - "updates@"
+    - "team@"
+    - "hello@"
+    - "contact@"
+    - "feedback@"
+    - "billing@"
+    - "invoice@"
+    - "receipts@"
+    - "orders@"
+    - "security@"
+    - "donotreply@"
+    - "do-not-reply@"
+    - "automated@"
+    - "auto@"
+    - "system@"
+    - "admin@"
+    - "webmaster@"
+    - "daemon@"
+    - "bounce@"
+    - "mail-daemon@"
+
+  # Your company's domain - emails from colleagues are ignored
+  # Set this to your company's email domain
+  company_domain: ""  # e.g., "mycompany.com" - leave empty to disable
+
+  # Subject line patterns that indicate NON-influencer emails (skip these)
+  blocked_subject_patterns:
+    - "^\\[.*\\] Build"           # CI/CD notifications
+    - "^\\[.*\\] Pipeline"
+    - "^\\[.*\\] Deploy"
+    - "^\\[.*\\] Alert"
+    - "^\\[.*\\] Incident"
+    - "Invitation:"               # Calendar invites
+    - "Accepted:"
+    - "Declined:"
+    - "Updated invitation:"
+    - "Canceled:"
+    - "Your .* receipt"
+    - "Your .* invoice"
+    - "Password reset"
+    - "Verify your email"
+    - "Confirm your"
+    - "Security alert"
+    - "Sign-in attempt"
+    - "Two-factor"
+    - "2FA"
+    - "Welcome to"
+    - "You have been added"
+    - "Weekly digest"
+    - "Daily digest"
+    - "Monthly report"
+    - "Usage report"
+
+  # Subject patterns that SUGGEST influencer-related content (higher chance of processing)
+  influencer_subject_hints:
+    - "collab"
+    - "collaboration"
+    - "partnership"
+    - "sponsor"
+    - "campaign"
+    - "brand deal"
+    - "rate"
+    - "pricing"
+    - "content"
+    - "post"
+    - "reel"
+    - "story"
+    - "stories"
+    - "video"
+    - "UGC"
+    - "creator"
+    - "influencer"
+    - "ambassador"
+
 # Email classification intents
 intents:
   - interested            # Positive response, wants to proceed
