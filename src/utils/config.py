@@ -15,8 +15,11 @@ class Settings(BaseSettings):
 
     # API Keys (from environment)
     anthropic_api_key: str = ""
+
+    # Slack credentials
     slack_bot_token: str = ""
     slack_signing_secret: str = ""
+    slack_app_token: str = ""  # Required for Socket Mode (starts with xapp-)
 
     # Gmail OAuth paths
     gmail_credentials_file: str = "credentials.json"
