@@ -58,10 +58,21 @@ class GmailClient:
 
     def authenticate(self) -> bool:
         """Authenticate with Gmail API using OAuth."""
+        import json
         creds = None
 
-        # Load existing token if available
-        if os.path.exists(self.token_file):
+        # Try loading from environment variable first (for cloud deployment)
+        gmail_token_json = os.environ.get("GMAIL_TOKEN_JSON")
+        if gmail_token_json:
+            try:
+                token_data = json.loads(gmail_token_json)
+                creds = Credentials.from_authorized_user_info(token_data, self.SCOPES)
+                logger.info("Loaded credentials from GMAIL_TOKEN_JSON env var")
+            except Exception as e:
+                logger.warning(f"Failed to load from env var: {e}")
+
+        # Fall back to token file
+        if not creds and os.path.exists(self.token_file):
             creds = Credentials.from_authorized_user_file(self.token_file, self.SCOPES)
 
         # If no valid credentials, get new ones
