@@ -186,8 +186,8 @@ Body preview:
 {body_preview}
 
 Answer with ONLY "YES" or "NO" followed by a brief reason (max 10 words).
-Example: "YES - Creator discussing Instagram post rates"
-Example: "NO - Automated billing notification""""
+Example: YES - Creator discussing Instagram post rates
+Example: NO - Automated billing notification"""
 
             response = self.claude.messages.create(
                 model="claude-sonnet-4-20250514",
