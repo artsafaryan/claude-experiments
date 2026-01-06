@@ -8,6 +8,10 @@ __pycache__/
 .env
 .env.local
 
+# OAuth credentials (contain secrets)
+credentials.json
+token.json
+
 # OS
 .DS_Store
 Thumbs.db
