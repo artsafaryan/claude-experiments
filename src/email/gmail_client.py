@@ -60,6 +60,7 @@ class GmailClient:
         """Authenticate with Gmail API using OAuth."""
         import json
         creds = None
+        from_env = False
 
         # Try loading from environment variable first (for cloud deployment)
         gmail_token_json = os.environ.get("GMAIL_TOKEN_JSON")
@@ -67,6 +68,7 @@ class GmailClient:
             try:
                 token_data = json.loads(gmail_token_json)
                 creds = Credentials.from_authorized_user_info(token_data, self.SCOPES)
+                from_env = True
                 logger.info("Loaded credentials from GMAIL_TOKEN_JSON env var")
             except Exception as e:
                 logger.warning(f"Failed to load from env var: {e}")
@@ -75,43 +77,58 @@ class GmailClient:
         if not creds and os.path.exists(self.token_file):
             creds = Credentials.from_authorized_user_file(self.token_file, self.SCOPES)
 
-        # If no valid credentials, get new ones
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                logger.info("Refreshing expired credentials")
+        # If credentials exist but are expired, try to refresh
+        if creds and creds.expired and creds.refresh_token:
+            logger.info("Refreshing expired credentials")
+            try:
                 creds.refresh(Request())
-            else:
-                if not os.path.exists(self.credentials_file):
-                    logger.error(
-                        f"Credentials file not found: {self.credentials_file}. "
-                        "Please download from Google Cloud Console."
-                    )
-                    return False
+            except Exception as e:
+                logger.error(f"Failed to refresh credentials: {e}")
+                creds = None
 
-                logger.info("Starting OAuth flow")
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.credentials_file, self.SCOPES
-                )
-                # Try browser first, fall back to manual URL flow
-                try:
-                    creds = flow.run_local_server(port=0)
-                except Exception:
-                    logger.info("Browser not available, using manual flow")
-                    # Generate auth URL manually
-                    auth_url, _ = flow.authorization_url(prompt='consent')
-                    print("\n" + "=" * 60)
-                    print("Please visit this URL to authorize:")
-                    print("=" * 60)
-                    print(f"\n{auth_url}\n")
-                    print("=" * 60)
-                    code = input("Enter the authorization code: ").strip()
-                    flow.fetch_token(code=code)
-                    creds = flow.credentials
+        # If we have valid credentials, we're done
+        if creds and creds.valid:
+            self.service = build("gmail", "v1", credentials=creds)
+            logger.info("Gmail API authenticated successfully")
+            return True
 
-            # Save credentials for future use
-            with open(self.token_file, "w") as token:
-                token.write(creds.to_json())
-            logger.info(f"Credentials saved to {self.token_file}")
+        # If loaded from env var but invalid, don't try OAuth flow (no credentials.json in cloud)
+        if from_env:
+            logger.error("GMAIL_TOKEN_JSON credentials are invalid and cannot be refreshed")
+            return False
+
+        # Try OAuth flow with credentials.json (only for local development)
+        if not os.path.exists(self.credentials_file):
+            logger.error(
+                f"Credentials file not found: {self.credentials_file}. "
+                "Please download from Google Cloud Console or set GMAIL_TOKEN_JSON env var."
+            )
+            return False
+
+        logger.info("Starting OAuth flow")
+        flow = InstalledAppFlow.from_client_secrets_file(
+            self.credentials_file, self.SCOPES
+        )
+        # Try browser first, fall back to manual URL flow
+        try:
+            creds = flow.run_local_server(port=0)
+        except Exception:
+            logger.info("Browser not available, using manual flow")
+            # Generate auth URL manually
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            print("\n" + "=" * 60)
+            print("Please visit this URL to authorize:")
+            print("=" * 60)
+            print(f"\n{auth_url}\n")
+            print("=" * 60)
+            code = input("Enter the authorization code: ").strip()
+            flow.fetch_token(code=code)
+            creds = flow.credentials
+
+        # Save credentials for future use
+        with open(self.token_file, "w") as token:
+            token.write(creds.to_json())
+        logger.info(f"Credentials saved to {self.token_file}")
 
         self.service = build("gmail", "v1", credentials=creds)
         logger.info("Gmail API authenticated successfully")
