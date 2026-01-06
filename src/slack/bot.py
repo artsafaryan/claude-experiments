@@ -1,9 +1,10 @@
-"""Slack bot for handling approvals and notifications."""
+"""Slack bot for handling approvals and notifications - conversational interface."""
 
 import re
 from typing import Optional, Callable
 from datetime import datetime
 
+import anthropic
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
@@ -19,7 +20,7 @@ logger = get_logger("slack")
 
 
 class SlackBot:
-    """Slack bot for approval workflow and notifications."""
+    """Conversational Slack bot for approval workflow and notifications."""
 
     def __init__(
         self,
@@ -30,6 +31,9 @@ class SlackBot:
         self.app_config = get_app_config()
         self.repo = repository or get_repository()
         self.on_approval_callback = on_approval_callback
+
+        # Initialize Claude client for conversational understanding
+        self.claude = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
 
         # Initialize Slack app
         self.app = App(
@@ -92,43 +96,136 @@ class SlackBot:
             user = body["user"]["username"]
             self._handle_edited_approval(approval_id, edited_text, user, client)
 
-        # ============== Slash Commands ==============
-
-        @self.app.command("/influencer-status")
-        def handle_status_command(ack, body, client):
-            ack()
-            self._handle_status_command(body, client)
-
-        @self.app.command("/influencer-approvals")
-        def handle_approvals_command(ack, body, client):
-            ack()
-            self._handle_approvals_command(body, client)
-
-        @self.app.command("/influencer-help")
-        def handle_help_command(ack, body, client):
-            ack()
-            self._handle_help_command(body, client)
-
-        # ============== Message Events ==============
+        # ============== Conversational Message Handling ==============
 
         @self.app.event("app_mention")
         def handle_mention(event, client):
-            """Handle when bot is mentioned."""
-            text = event.get("text", "").lower()
+            """Handle when bot is mentioned - conversational response."""
+            text = event.get("text", "")
             channel = event["channel"]
+            user = event.get("user", "")
 
-            if "status" in text:
-                self._send_status_to_channel(channel, client)
-            elif "approval" in text or "pending" in text:
-                self._send_approvals_to_channel(channel, client)
+            # Remove the bot mention from the text
+            clean_text = re.sub(r'<@[A-Z0-9]+>', '', text).strip()
+
+            self._handle_conversation(clean_text, channel, user, client)
+
+        @self.app.event("message")
+        def handle_dm(event, client):
+            """Handle direct messages to the bot."""
+            # Only respond to DMs (channel type 'im')
+            if event.get("channel_type") != "im":
+                return
+
+            # Ignore bot's own messages
+            if event.get("bot_id"):
+                return
+
+            text = event.get("text", "")
+            channel = event["channel"]
+            user = event.get("user", "")
+
+            self._handle_conversation(text, channel, user, client)
+
+    def _handle_conversation(self, user_message: str, channel: str, user: str, client: WebClient):
+        """Handle conversational messages using Claude to understand intent."""
+        try:
+            # Get current system state for context
+            state = self._get_system_state()
+
+            # Use Claude to understand what the user wants and generate response
+            system_prompt = f"""You are a friendly assistant for an influencer marketing automation system.
+You help users check on their influencer pipeline, pending approvals, and answer questions about the system.
+
+Current system state:
+{state}
+
+Based on the user's message, provide a helpful, conversational response. Be concise but friendly.
+If they're asking about status, approvals, or the pipeline - give them the relevant info from the state above.
+If they want to see pending approvals, tell them you'll show the approval cards.
+If they're asking how to do something, explain it simply.
+If you're not sure what they want, ask clarifying questions.
+
+Keep responses short and to the point - this is Slack, not email."""
+
+            response = self.claude.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=500,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_message}]
+            )
+
+            bot_response = response.content[0].text
+
+            # Check if we should also show approval cards
+            show_approvals = self._should_show_approvals(user_message)
+
+            # Send the conversational response
+            client.chat_postMessage(
+                channel=channel,
+                text=bot_response,
+            )
+
+            # If they asked about approvals and there are pending ones, show the cards
+            if show_approvals:
+                pending = self.repo.get_pending_approvals()
+                if pending:
+                    self._send_approvals_to_channel(channel, client)
+
+        except Exception as e:
+            logger.error(f"Error in conversation handler: {e}")
+            client.chat_postMessage(
+                channel=channel,
+                text="Sorry, I hit a snag. Try again or check the logs for details.",
+            )
+
+    def _should_show_approvals(self, message: str) -> bool:
+        """Quick check if user is asking to see approvals."""
+        keywords = ["approval", "pending", "review", "show me", "what's waiting", "queue"]
+        message_lower = message.lower()
+        return any(kw in message_lower for kw in keywords)
+
+    def _get_system_state(self) -> str:
+        """Get current system state as a string for Claude context."""
+        try:
+            # Count influencers by status
+            status_counts = {}
+            for status in InfluencerStatus:
+                count = len(self.repo.get_influencers_by_status(status))
+                if count > 0:
+                    status_counts[status.value] = count
+
+            pending_approvals = self.repo.get_pending_approvals()
+            follow_ups = self.repo.get_conversations_needing_follow_up()
+
+            # Build state string
+            lines = ["Pipeline Status:"]
+            if status_counts:
+                for status, count in status_counts.items():
+                    lines.append(f"  - {status.replace('_', ' ').title()}: {count}")
             else:
-                client.chat_postMessage(
-                    channel=channel,
-                    text="👋 Hi! I can help with:\n"
-                    "• `@bot status` - View current pipeline status\n"
-                    "• `@bot approvals` - See pending approvals\n"
-                    "Or use slash commands: `/influencer-status`, `/influencer-approvals`",
-                )
+                lines.append("  - No influencers in pipeline yet")
+
+            lines.append(f"\nPending Approvals: {len(pending_approvals)}")
+            if pending_approvals:
+                lines.append("Waiting for review:")
+                for approval in pending_approvals[:5]:  # Show first 5
+                    with self.repo.get_session() as session:
+                        from ..database.models import PendingApproval
+                        fresh = session.query(PendingApproval).filter(
+                            PendingApproval.id == approval.id
+                        ).first()
+                        if fresh and fresh.conversation and fresh.conversation.influencer:
+                            name = fresh.conversation.influencer.name
+                            lines.append(f"  - {name}: {fresh.response_type}")
+
+            lines.append(f"\nFollow-ups Needed: {len(follow_ups)}")
+
+            return "\n".join(lines)
+
+        except Exception as e:
+            logger.error(f"Error getting system state: {e}")
+            return "Unable to fetch current state."
 
     # ============== Action Handlers ==============
 
@@ -351,143 +448,7 @@ class SlackBot:
         except SlackApiError as e:
             logger.error(f"Error opening details modal: {e}")
 
-    # ============== Slash Command Handlers ==============
-
-    def _handle_status_command(self, body: dict, client: WebClient):
-        """Handle /influencer-status command."""
-        try:
-            # Get counts by status
-            status_counts = {}
-            for status in InfluencerStatus:
-                count = len(self.repo.get_influencers_by_status(status))
-                if count > 0:
-                    status_counts[status.value] = count
-
-            pending_approvals = len(self.repo.get_pending_approvals())
-            follow_ups_needed = len(self.repo.get_conversations_needing_follow_up())
-
-            # Build response
-            status_lines = []
-            status_emoji = {
-                "sourced": "📋",
-                "contacted": "📧",
-                "negotiating": "💬",
-                "agreed": "🤝",
-                "declined": "👎",
-                "stale": "⏰",
-                "content_pending": "📸",
-                "content_received": "✅",
-                "completed": "🎉",
-            }
-
-            for status, count in status_counts.items():
-                emoji = status_emoji.get(status, "•")
-                status_lines.append(f"{emoji} {status.replace('_', ' ').title()}: *{count}*")
-
-            blocks = [
-                {
-                    "type": "header",
-                    "text": {"type": "plain_text", "text": "📊 Influencer Pipeline Status", "emoji": True},
-                },
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": "\n".join(status_lines) or "No influencers yet"},
-                },
-                {"type": "divider"},
-                {
-                    "type": "section",
-                    "fields": [
-                        {"type": "mrkdwn", "text": f"*Pending Approvals:*\n{pending_approvals}"},
-                        {"type": "mrkdwn", "text": f"*Follow-ups Needed:*\n{follow_ups_needed}"},
-                    ],
-                },
-            ]
-
-            client.chat_postEphemeral(
-                channel=body["channel_id"],
-                user=body["user_id"],
-                text="Pipeline Status",
-                blocks=blocks,
-            )
-
-        except Exception as e:
-            logger.error(f"Error in status command: {e}")
-            client.chat_postEphemeral(
-                channel=body["channel_id"],
-                user=body["user_id"],
-                text=f"❌ Error getting status: {e}",
-            )
-
-    def _handle_approvals_command(self, body: dict, client: WebClient):
-        """Handle /influencer-approvals command."""
-        try:
-            pending = self.repo.get_pending_approvals()
-
-            if not pending:
-                client.chat_postEphemeral(
-                    channel=body["channel_id"],
-                    user=body["user_id"],
-                    text="✅ No pending approvals! All caught up.",
-                )
-                return
-
-            # Send approval cards to the channel (not ephemeral, so buttons work)
-            self._send_approvals_to_channel(body["channel_id"], client)
-
-        except Exception as e:
-            logger.error(f"Error in approvals command: {e}")
-            client.chat_postEphemeral(
-                channel=body["channel_id"],
-                user=body["user_id"],
-                text=f"❌ Error getting approvals: {e}",
-            )
-
-    def _handle_help_command(self, body: dict, client: WebClient):
-        """Handle /influencer-help command."""
-        help_text = """*🤖 Influencer Automation Bot*
-
-*Slash Commands:*
-• `/influencer-status` - View pipeline overview
-• `/influencer-approvals` - Show pending approvals
-• `/influencer-help` - Show this help message
-
-*Approval Actions:*
-• ✅ *Approve* - Send the drafted response as-is
-• ✏️ *Edit* - Modify the response before sending
-• ❌ *Reject* - Discard the drafted response
-• 👀 *View Full* - See complete message details
-
-*Automatic Features:*
-• New emails are checked every minute
-• Approval batches sent every 2 hours
-• Follow-ups generated after 3, 7, 14 days
-• Deals under $100 are auto-approved
-
-*Need help?* Just mention me with your question!"""
-
-        client.chat_postEphemeral(
-            channel=body["channel_id"],
-            user=body["user_id"],
-            text=help_text,
-        )
-
     # ============== Helper Methods ==============
-
-    def _send_status_to_channel(self, channel: str, client: WebClient):
-        """Send status to a channel (for mentions)."""
-        # Simplified version - reuse command logic
-        body = {"channel_id": channel, "user_id": "system"}
-        # For public response, use chat_postMessage instead
-        try:
-            pending_approvals = len(self.repo.get_pending_approvals())
-            follow_ups = len(self.repo.get_conversations_needing_follow_up())
-
-            client.chat_postMessage(
-                channel=channel,
-                text=f"📊 *Quick Status*\n• Pending approvals: {pending_approvals}\n• Follow-ups needed: {follow_ups}",
-            )
-        except Exception as e:
-            logger.error(f"Error sending status: {e}")
 
     def _send_approvals_to_channel(self, channel: str, client: WebClient):
         """Send pending approvals to a channel."""
@@ -496,7 +457,7 @@ class SlackBot:
         if not pending:
             client.chat_postMessage(
                 channel=channel,
-                text="✅ No pending approvals!",
+                text="✅ No pending approvals - you're all caught up!",
             )
             return
 
