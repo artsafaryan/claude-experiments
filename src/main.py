@@ -75,6 +75,8 @@ def send_approvals():
 
 def run_daemon():
     """Run the full automation system as a daemon."""
+    import threading
+
     logger = get_logger("main")
     logger.info("Starting Influencer Automation daemon...")
 
@@ -94,7 +96,7 @@ def run_daemon():
 
     # Initialize Slack bot if configured
     slack_bot = None
-    if settings.slack_bot_token:
+    if settings.slack_bot_token and settings.slack_app_token:
         def on_approval(approval):
             """Callback when a response is approved."""
             # Get the response to send
@@ -116,8 +118,19 @@ def run_daemon():
 
         slack_bot = SlackBot(on_approval_callback=on_approval)
         logger.info("Slack bot initialized")
+
+        # Start Socket Mode in a separate thread so it doesn't block
+        def start_slack_bot():
+            try:
+                slack_bot.start()
+            except Exception as e:
+                logger.error(f"Slack bot error: {e}")
+
+        slack_thread = threading.Thread(target=start_slack_bot, daemon=True)
+        slack_thread.start()
+        logger.info("Slack Socket Mode started in background thread")
     else:
-        logger.warning("Slack not configured - approvals will require manual handling")
+        logger.warning("Slack not fully configured - need SLACK_BOT_TOKEN and SLACK_APP_TOKEN")
 
     # Initialize scheduler
     scheduler = Scheduler(
