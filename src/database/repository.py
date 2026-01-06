@@ -27,7 +27,8 @@ class Repository:
     def __init__(self, database_url: Optional[str] = None):
         self.database_url = database_url or get_settings().database_url
         self.engine = create_engine(self.database_url)
-        self.SessionLocal = sessionmaker(bind=self.engine)
+        # expire_on_commit=False allows objects to be used after session closes
+        self.SessionLocal = sessionmaker(bind=self.engine, expire_on_commit=False)
 
         # Create tables if they don't exist
         Base.metadata.create_all(self.engine)
@@ -74,17 +75,24 @@ class Repository:
             session.add(influencer)
             session.flush()
             session.refresh(influencer)
+            session.expunge(influencer)
             return influencer
 
     def get_influencer_by_email(self, email: str) -> Optional[Influencer]:
         """Find an influencer by email address."""
         with self.get_session() as session:
-            return session.query(Influencer).filter(Influencer.email == email).first()
+            influencer = session.query(Influencer).filter(Influencer.email == email).first()
+            if influencer:
+                session.expunge(influencer)
+            return influencer
 
     def get_influencer_by_id(self, influencer_id: str) -> Optional[Influencer]:
         """Find an influencer by ID."""
         with self.get_session() as session:
-            return session.query(Influencer).filter(Influencer.id == influencer_id).first()
+            influencer = session.query(Influencer).filter(Influencer.id == influencer_id).first()
+            if influencer:
+                session.expunge(influencer)
+            return influencer
 
     def update_influencer_status(
         self, influencer_id: str, status: InfluencerStatus
@@ -99,7 +107,10 @@ class Repository:
     def get_influencers_by_status(self, status: InfluencerStatus) -> list[Influencer]:
         """Get all influencers with a specific status."""
         with self.get_session() as session:
-            return session.query(Influencer).filter(Influencer.status == status).all()
+            influencers = session.query(Influencer).filter(Influencer.status == status).all()
+            for inf in influencers:
+                session.expunge(inf)
+            return influencers
 
     # ==================== Conversation Operations ====================
 
@@ -119,21 +130,25 @@ class Repository:
             session.add(conversation)
             session.flush()
             session.refresh(conversation)
+            session.expunge(conversation)
             return conversation
 
     def get_conversation_by_thread_id(self, thread_id: str) -> Optional[Conversation]:
         """Find a conversation by Gmail thread ID."""
         with self.get_session() as session:
-            return (
+            conv = (
                 session.query(Conversation)
                 .filter(Conversation.gmail_thread_id == thread_id)
                 .first()
             )
+            if conv:
+                session.expunge(conv)
+            return conv
 
     def get_active_conversations(self) -> list[Conversation]:
         """Get all active conversations."""
         with self.get_session() as session:
-            return (
+            convs = (
                 session.query(Conversation)
                 .filter(
                     Conversation.status.in_([
@@ -143,12 +158,15 @@ class Repository:
                 )
                 .all()
             )
+            for conv in convs:
+                session.expunge(conv)
+            return convs
 
     def get_conversations_needing_follow_up(self) -> list[Conversation]:
         """Get conversations that need follow-up."""
         with self.get_session() as session:
             now = datetime.utcnow()
-            return (
+            convs = (
                 session.query(Conversation)
                 .filter(
                     and_(
@@ -159,6 +177,9 @@ class Repository:
                 )
                 .all()
             )
+            for conv in convs:
+                session.expunge(conv)
+            return convs
 
     def update_conversation_after_message(
         self,
@@ -218,26 +239,33 @@ class Repository:
             session.add(email)
             session.flush()
             session.refresh(email)
+            session.expunge(email)
             return email
 
     def get_email_by_message_id(self, message_id: str) -> Optional[Email]:
         """Find an email by Gmail message ID."""
         with self.get_session() as session:
-            return (
+            email = (
                 session.query(Email)
                 .filter(Email.gmail_message_id == message_id)
                 .first()
             )
+            if email:
+                session.expunge(email)
+            return email
 
     def get_conversation_emails(self, conversation_id: str) -> list[Email]:
         """Get all emails in a conversation, ordered by date."""
         with self.get_session() as session:
-            return (
+            emails = (
                 session.query(Email)
                 .filter(Email.conversation_id == conversation_id)
                 .order_by(Email.sent_at)
                 .all()
             )
+            for email in emails:
+                session.expunge(email)
+            return emails
 
     def update_email_classification(
         self,
@@ -298,17 +326,21 @@ class Repository:
             if conversation:
                 conversation.status = ConversationStatus.PENDING_APPROVAL
 
+            session.expunge(approval)
             return approval
 
     def get_pending_approvals(self) -> list[PendingApproval]:
         """Get all pending approvals."""
         with self.get_session() as session:
-            return (
+            approvals = (
                 session.query(PendingApproval)
                 .filter(PendingApproval.status == ApprovalStatus.PENDING)
                 .order_by(PendingApproval.created_at)
                 .all()
             )
+            for approval in approvals:
+                session.expunge(approval)
+            return approvals
 
     def approve_response(
         self, approval_id: str, edited_response: Optional[str] = None
@@ -327,6 +359,7 @@ class Repository:
                 else:
                     approval.status = ApprovalStatus.APPROVED
                 approval.reviewed_at = datetime.utcnow()
+                session.expunge(approval)
             return approval
 
     def reject_response(self, approval_id: str) -> None:
@@ -374,17 +407,21 @@ class Repository:
             session.add(event)
             session.flush()
             session.refresh(event)
+            session.expunge(event)
             return event
 
     def get_negotiation_history(self, conversation_id: str) -> list[NegotiationEvent]:
         """Get negotiation history for a conversation."""
         with self.get_session() as session:
-            return (
+            events = (
                 session.query(NegotiationEvent)
                 .filter(NegotiationEvent.conversation_id == conversation_id)
                 .order_by(NegotiationEvent.created_at)
                 .all()
             )
+            for event in events:
+                session.expunge(event)
+            return events
 
 
 # Singleton instance
