@@ -77,11 +77,25 @@ class GmailClient:
                     )
                     return False
 
-                logger.info("Starting OAuth flow - browser will open")
+                logger.info("Starting OAuth flow")
                 flow = InstalledAppFlow.from_client_secrets_file(
                     self.credentials_file, self.SCOPES
                 )
-                creds = flow.run_local_server(port=0)
+                # Try browser first, fall back to manual URL flow
+                try:
+                    creds = flow.run_local_server(port=0)
+                except Exception:
+                    logger.info("Browser not available, using manual flow")
+                    # Generate auth URL manually
+                    auth_url, _ = flow.authorization_url(prompt='consent')
+                    print("\n" + "=" * 60)
+                    print("Please visit this URL to authorize:")
+                    print("=" * 60)
+                    print(f"\n{auth_url}\n")
+                    print("=" * 60)
+                    code = input("Enter the authorization code: ").strip()
+                    flow.fetch_token(code=code)
+                    creds = flow.credentials
 
             # Save credentials for future use
             with open(self.token_file, "w") as token:
