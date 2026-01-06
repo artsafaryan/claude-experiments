@@ -1,6 +1,0 @@
-[build]
-builder = "nixpacks"
-
-[deploy]
-startCommand = "python -m src.main --daemon"
-restartPolicyType = "always"
