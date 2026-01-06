@@ -1,0 +1,137 @@
+# Negotiation Rules and Automation Logic
+
+# Email classification intents
+intents:
+  - interested            # Positive response, wants to proceed
+  - negotiating_price     # Counter-offering or discussing rate
+  - asking_question       # Has questions about the campaign
+  - accepting_offer       # Agrees to the deal
+  - declining_offer       # Not interested
+  - submitting_content    # Sending content for review
+  - requesting_info       # Wants more details (timeline, format, etc.)
+  - out_of_office         # Auto-reply / OOO
+  - unrelated             # Not relevant to campaign
+
+# Question categories and auto-response triggers
+question_routing:
+  timeline:
+    triggers:
+      - "when do you need"
+      - "deadline"
+      - "posting date"
+      - "timeline"
+      - "how soon"
+      - "turnaround"
+    response_template: "timeline_info"
+
+  format:
+    triggers:
+      - "format"
+      - "requirements"
+      - "specifications"
+      - "how long should"
+      - "aspect ratio"
+      - "duration"
+      - "what kind of content"
+    response_template: "format_requirements"
+
+  payment:
+    triggers:
+      - "when do you pay"
+      - "payment terms"
+      - "how do you pay"
+      - "invoice"
+    escalate: true  # Always escalate payment questions
+
+  usage_rights:
+    triggers:
+      - "usage rights"
+      - "exclusivity"
+      - "how will you use"
+      - "other platforms"
+      - "repurpose"
+    escalate: true  # Always escalate rights discussions
+
+# Negotiation rules
+negotiation:
+  # Auto-approve scenarios
+  auto_approve:
+    - condition: "deal_value < 100"
+      action: "approve_and_send"
+    - condition: "rate_within_budget"
+      action: "approve_and_send"
+
+  # Counter-offer logic
+  counter_offer:
+    - condition: "their_rate <= initial_offer * 1.1"  # Within 10%
+      action: "accept"
+      template: "negotiation_accept_rate"
+
+    - condition: "their_rate <= initial_offer * 1.2"  # Within 20%
+      action: "counter"
+      counter_at: "midpoint"  # Meet in the middle
+      template: "negotiation_counter"
+
+    - condition: "their_rate > initial_offer * 1.2"   # Over 20%
+      action: "counter_with_max"
+      template: "negotiation_max_reached"
+
+  # Hard limits
+  limits:
+    max_rounds: 3           # Max back-and-forth before escalation
+    max_increase_percent: 20
+    always_escalate_over: 5000
+
+# Escalation triggers - always require human approval
+escalation_triggers:
+  keywords:
+    - "contract"
+    - "legal"
+    - "exclusive"
+    - "agency"
+    - "manager"
+    - "lawyer"
+    - "lawsuit"
+    - "competitor"
+    - "NDA"
+
+  scenarios:
+    - "multi_platform_deal"        # Wants deal across multiple platforms
+    - "long_term_partnership"      # Ongoing relationship discussion
+    - "rate_over_threshold"        # Over escalation threshold
+    - "unusual_request"            # Anything Claude is unsure about
+    - "negative_sentiment"         # Upset or frustrated influencer
+    - "third_party_involvement"    # Agent/manager involved
+
+# Follow-up rules
+follow_ups:
+  schedule:
+    - days_after: 3
+      template: "follow_up_first"
+      condition: "no_response"
+
+    - days_after: 7
+      template: "follow_up_second"
+      condition: "no_response"
+
+    - days_after: 14
+      action: "mark_stale"
+      notify: true
+
+  # Don't follow up if:
+  skip_follow_up:
+    - "declined"
+    - "deal_confirmed"
+    - "content_submitted"
+    - "explicitly_said_no"
+
+# Response priority
+priority:
+  high:
+    - "accepting_offer"      # Someone said yes!
+    - "submitting_content"   # Content to review
+  medium:
+    - "negotiating_price"
+    - "asking_question"
+  low:
+    - "follow_up_due"

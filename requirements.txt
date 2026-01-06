@@ -1,0 +1,35 @@
+# Core
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+PyYAML==6.0.1
+
+# Database
+sqlalchemy==2.0.23
+alembic==1.13.0
+
+# Gmail API
+google-api-python-client==2.111.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.0
+
+# Slack
+slack-bolt==1.18.1
+slack-sdk==3.23.0
+
+# Claude API
+anthropic==0.39.0
+
+# HTTP
+httpx==0.26.0
+
+# Scheduling
+apscheduler==3.10.4
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.23.2
+
+# Dev
+black==23.12.1
+ruff==0.1.8

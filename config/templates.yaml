@@ -1,0 +1,191 @@
+# Email Templates for Influencer Communication
+
+brand:
+  name: "Your Brand"  # Replace with actual brand name
+  website: "https://yourbrand.com"
+  contact_name: "Sarah"  # Marketing manager's name
+
+templates:
+  # Initial outreach to new influencers
+  initial_outreach:
+    subject: "Collaboration Opportunity with {brand_name}"
+    body: |
+      Hi {influencer_name},
+
+      I hope this message finds you well! I'm {contact_name} from {brand_name}, and I've been following your content for a while now. Your {content_style} really resonates with our brand values.
+
+      We'd love to explore a paid collaboration with you. Here's what we have in mind:
+
+      📦 What we're offering:
+      - Compensation: ${initial_rate} for {content_type}
+      - Free products from our latest collection
+      - Potential for ongoing partnership
+
+      📋 What we'd need:
+      - {content_requirements}
+      - Posting within {timeline}
+      - Standard usage rights for our social channels
+
+      Would you be interested in learning more? I'd be happy to share our full creative brief and answer any questions.
+
+      Looking forward to hearing from you!
+
+      Best,
+      {contact_name}
+      {brand_name}
+
+  # Follow-up for non-responsive influencers
+  follow_up_first:
+    subject: "Re: Collaboration Opportunity with {brand_name}"
+    body: |
+      Hi {influencer_name},
+
+      I wanted to follow up on my previous email about a potential collaboration with {brand_name}.
+
+      We're still very interested in working with you and would love to hear your thoughts. If you have any questions about the partnership or need more details, I'm happy to help!
+
+      Let me know if you'd like to chat.
+
+      Best,
+      {contact_name}
+
+  follow_up_second:
+    subject: "Re: Collaboration Opportunity with {brand_name}"
+    body: |
+      Hi {influencer_name},
+
+      Just circling back one more time! I completely understand if the timing isn't right or if this isn't a fit for you.
+
+      If you're interested but have concerns about the rate or terms, I'm open to discussing. Otherwise, no worries at all – perhaps we can connect on a future campaign!
+
+      Wishing you all the best,
+      {contact_name}
+
+  # Negotiation responses
+  negotiation_accept_rate:
+    body: |
+      Hi {influencer_name},
+
+      Great news – we can make {their_rate} work! We're excited to move forward with this collaboration.
+
+      Next steps:
+      1. I'll send over our creative brief with all the details
+      2. Please confirm the posting date that works for you
+      3. We'll arrange payment upon content approval
+
+      Looking forward to creating something amazing together!
+
+      Best,
+      {contact_name}
+
+  negotiation_counter:
+    body: |
+      Hi {influencer_name},
+
+      Thank you for your response! I appreciate you sharing your rates.
+
+      While {their_rate} is a bit above our current campaign budget, I'd love to make this work. The best we can offer is ${our_counter}, which reflects the value we see in your content and audience engagement.
+
+      This would include:
+      - {content_description}
+      - Full creative freedom within our brand guidelines
+      - Products from our collection
+
+      Would this work for you? I'm confident we can create something great together.
+
+      Best,
+      {contact_name}
+
+  negotiation_max_reached:
+    body: |
+      Hi {influencer_name},
+
+      I really appreciate your flexibility in this discussion! Unfortunately, ${our_max} is the absolute maximum we can offer for this campaign.
+
+      I understand if this doesn't align with your rates – you know your worth best! If the budget works for you, we'd be thrilled to collaborate. If not, I'd love to keep you in mind for future campaigns with larger budgets.
+
+      Let me know your thoughts!
+
+      Best,
+      {contact_name}
+
+  # Information responses
+  timeline_info:
+    body: |
+      Hi {influencer_name},
+
+      Great question! Here are the timeline details:
+
+      📅 Campaign Timeline:
+      - Content creation period: {creation_period}
+      - Posting window: {posting_window}
+      - Draft submission deadline: {draft_deadline}
+
+      We're flexible on the exact posting date within this window – just let us know what works best for your content calendar!
+
+      Any other questions?
+
+      Best,
+      {contact_name}
+
+  format_requirements:
+    body: |
+      Hi {influencer_name},
+
+      Happy to share our content requirements!
+
+      📱 Format Details:
+      - Platform: {platform}
+      - Content type: {content_type}
+      - Duration: {duration}
+      - Aspect ratio: {aspect_ratio}
+
+      📝 Requirements:
+      - Mention/tag @{brand_handle}
+      - Include #{hashtags}
+      - {additional_requirements}
+
+      We encourage creative freedom within these guidelines – your authentic style is what we love!
+
+      Let me know if you need anything else.
+
+      Best,
+      {contact_name}
+
+  # Acceptance/confirmation
+  deal_confirmed:
+    subject: "We're all set! Next steps for our collaboration"
+    body: |
+      Hi {influencer_name},
+
+      Wonderful – I'm so excited we're moving forward! 🎉
+
+      Here's everything you need:
+
+      📋 Creative Brief: [Attached/Link]
+      💰 Agreed Rate: ${agreed_rate}
+      📅 Posting Date: {posting_date}
+      📝 Draft Due: {draft_deadline}
+
+      Please submit your draft content to this email for review. We typically provide feedback within 24-48 hours.
+
+      Payment will be processed within {payment_terms} of content going live.
+
+      Can't wait to see what you create!
+
+      Best,
+      {contact_name}
+
+  # Content received
+  content_received:
+    body: |
+      Hi {influencer_name},
+
+      Thank you for sending over your content! I've received it and will review it shortly.
+
+      You can expect feedback within 24-48 hours. If everything looks good, I'll give you the green light to post!
+
+      Thanks for your hard work on this.
+
+      Best,
+      {contact_name}

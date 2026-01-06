@@ -1,0 +1,40 @@
+# Application Settings
+app:
+  name: "Influencer Automation"
+  environment: "development"  # development, staging, production
+  log_level: "INFO"
+
+# Database
+database:
+  url: "sqlite:///./influencer_automation.db"
+  # For production: postgresql://user:pass@localhost/dbname
+
+# Gmail Settings
+gmail:
+  credentials_file: "credentials.json"
+  token_file: "token.json"
+  scopes:
+    - "https://www.googleapis.com/auth/gmail.readonly"
+    - "https://www.googleapis.com/auth/gmail.send"
+    - "https://www.googleapis.com/auth/gmail.modify"
+  check_interval_seconds: 60  # How often to check for new emails
+  label_filter: "INBOX"  # Gmail label to monitor
+
+# Slack Settings
+slack:
+  # Bot token and signing secret from environment variables
+  summary_channel: "#influencer-updates"
+  approval_interval_hours: 2  # Send approval batches every 2 hours
+
+# Claude Settings
+claude:
+  model: "claude-sonnet-4-20250514"
+  max_tokens: 1024
+  temperature: 0.3  # Lower for more consistent responses
+
+# Follow-up Settings
+follow_ups:
+  first_follow_up_days: 3
+  second_follow_up_days: 7
+  mark_stale_days: 14
+  max_follow_ups: 2

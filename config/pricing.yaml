@@ -1,0 +1,53 @@
+# Pricing Configuration for Influencer Deals
+
+pricing:
+  # Base rates by follower tier
+  tiers:
+    nano:
+      followers_min: 1000
+      followers_max: 10000
+      rate_min: 50
+      rate_max: 150
+    micro:
+      followers_min: 10000
+      followers_max: 50000
+      rate_min: 150
+      rate_max: 500
+    mid:
+      followers_min: 50000
+      followers_max: 500000
+      rate_min: 500
+      rate_max: 2000
+    macro:
+      followers_min: 500000
+      followers_max: 1000000
+      rate_min: 2000
+      rate_max: 10000
+    mega:
+      followers_min: 1000000
+      followers_max: null  # No upper limit
+      rate_min: 10000
+      rate_max: 50000
+
+  # Content type multipliers (applied to base rate)
+  content_multipliers:
+    instagram_reel: 1.0
+    instagram_story: 0.5
+    instagram_post: 0.8
+    tiktok_video: 1.2
+    youtube_short: 1.5
+    youtube_video: 3.0
+    twitter_post: 0.4
+
+  # Negotiation boundaries
+  negotiation:
+    max_increase_percent: 20      # Maximum we'll go above initial offer
+    counter_offer_percent: 10     # When they counter, we meet them X% of the way
+    auto_approve_under: 100       # Auto-approve deals under this amount
+    escalate_over: 5000           # Always escalate deals over this amount
+
+  # Package discounts
+  package_discounts:
+    2_posts: 0.10   # 10% discount for 2 posts
+    3_posts: 0.15   # 15% discount for 3 posts
+    5_posts: 0.20   # 20% discount for 5+ posts
