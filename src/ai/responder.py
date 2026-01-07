@@ -494,3 +494,22 @@ Circling back on the previous email.
             can_adjust=draft.can_adjust,
             variables_used={**draft.variables_used, **inputs},
         )
+
+    def generate_general_response(
+        self,
+        influencer_name: str,
+        email_content: str,
+        classification: Optional[object] = None,
+    ) -> str:
+        """Generate a general response for any intent not specifically handled."""
+        intent = classification.intent if classification else "unknown"
+
+        # Try to use the standard generate_response first
+        draft = self.generate_response(
+            intent=intent,
+            influencer_name=influencer_name,
+            classification=classification,
+            original_message=email_content,
+        )
+
+        return draft.body
