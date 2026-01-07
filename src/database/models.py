@@ -214,6 +214,9 @@ class PendingApproval(Base):
     # Edited response (if reviewer made changes)
     edited_response = Column(Text)
 
+    # Extra data for UI (JSON) - stores needs_input, can_adjust, etc.
+    extra_data = Column(Text)
+
     # Relationships
     conversation = relationship("Conversation", back_populates="pending_approvals")
 

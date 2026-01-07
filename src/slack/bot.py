@@ -216,9 +216,10 @@ class SlackBot:
 
                 # Parse needs_input from the stored JSON or default
                 needs_input = []
-                if approval.extra_data:
+                extra_data = getattr(approval, 'extra_data', None)
+                if extra_data:
                     try:
-                        extra = json.loads(approval.extra_data) if isinstance(approval.extra_data, str) else approval.extra_data
+                        extra = json.loads(extra_data) if isinstance(extra_data, str) else extra_data
                         needs_input = extra.get("needs_input", [])
                     except (json.JSONDecodeError, TypeError):
                         pass
@@ -827,10 +828,11 @@ Keep responses short and friendly."""
                     # Check for needs_input from extra_data or infer from placeholders
                     needs_input = []
                     draft = fresh_approval.draft_response or ""
+                    extra_data = getattr(fresh_approval, 'extra_data', None)
 
-                    if fresh_approval.extra_data:
+                    if extra_data:
                         try:
-                            extra = json.loads(fresh_approval.extra_data) if isinstance(fresh_approval.extra_data, str) else fresh_approval.extra_data
+                            extra = json.loads(extra_data) if isinstance(extra_data, str) else extra_data
                             needs_input = extra.get("needs_input", [])
                         except (json.JSONDecodeError, TypeError):
                             pass
@@ -976,10 +978,11 @@ Keep responses short and friendly."""
                 # Check for needs_input
                 needs_input = []
                 draft = approval.draft_response or ""
+                extra_data = getattr(approval, 'extra_data', None)
 
-                if approval.extra_data:
+                if extra_data:
                     try:
-                        extra = json.loads(approval.extra_data) if isinstance(approval.extra_data, str) else approval.extra_data
+                        extra = json.loads(extra_data) if isinstance(extra_data, str) else extra_data
                         needs_input = extra.get("needs_input", [])
                     except (json.JSONDecodeError, TypeError):
                         pass

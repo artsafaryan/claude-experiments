@@ -64,7 +64,7 @@ class EmailProcessor:
                 return []
 
         # Get unread messages
-        messages = self.gmail.get_unread_messages(max_results=10)
+        messages = self.gmail.get_unread_messages(max_results=50)
         logger.info(f"Found {len(messages)} unread messages")
 
         processed = []
