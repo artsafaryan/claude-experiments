@@ -1,6 +1,5 @@
 """Configuration loader for YAML config files."""
 
-import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -27,7 +26,8 @@ class Settings(BaseSettings):
 
     # Database - Railway sets DATABASE_URL automatically for PostgreSQL
     # Falls back to SQLite for local development only
-    database_url: str = os.environ.get("DATABASE_URL", "sqlite:///./influencer_automation.db")
+    # NOTE: Don't use os.environ.get() here - let pydantic-settings handle it
+    database_url: str = "sqlite:///./influencer_automation.db"
 
     # App settings
     environment: str = "development"
@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        # Ensure DATABASE_URL from environment takes precedence
+        extra = "ignore"
 
 
 def get_config_path() -> Path:
