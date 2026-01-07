@@ -513,3 +513,34 @@ Circling back on the previous email.
         )
 
         return draft.body
+
+    def generate_question_response(
+        self,
+        influencer_name: str,
+        question_summary: str,
+        classification: Optional[object] = None,
+    ) -> str:
+        """Generate a response to an influencer's question."""
+        # Use Claude to generate a helpful response to their question
+        draft = self._generate_custom_response(
+            intent="asking_question",
+            influencer_name=influencer_name,
+            classification=classification,
+            original_message=question_summary,
+        )
+
+        return draft.body
+
+    def generate_content_received_response(
+        self,
+        influencer_name: str,
+        content_type: str = "preview",
+    ) -> str:
+        """Generate a response acknowledging content was received."""
+        # Try preview_approved template first
+        draft = self.generate_response(
+            intent="sent_preview",
+            influencer_name=influencer_name,
+        )
+
+        return draft.body
