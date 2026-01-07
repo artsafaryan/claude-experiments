@@ -1,191 +1,556 @@
-# Email Templates for Influencer Communication
-
-brand:
-  name: "Your Brand"  # Replace with actual brand name
-  website: "https://yourbrand.com"
-  contact_name: "Sarah"  # Marketing manager's name
+# Customuse Influencer Response Templates
+# These templates are used to generate draft responses based on conversation stage/intent
+#
+# Variables available:
+#   {{influencer_name}} - The influencer's name/handle
+#   {{platform}} - Their primary platform (YouTube, TikTok, etc.)
+#   {{our_offer}} - Our proposed rate
+#   {{their_rate}} - Their requested rate
+#   {{promo_code}} - Their unique promo code (provided by Pauline)
+#   {{preview_deadline}} - When we need the preview
+#   {{signature}} - Full email signature block
+#
+# Special placeholders that require Pauline's input:
+#   {{NEEDS_PROMO_CODE}} - Pauline must provide the promo code
+#   {{NEEDS_DEADLINE}} - Pauline must provide the deadline
+#   {{NEEDS_FEEDBACK}} - Pauline must provide specific feedback
 
 templates:
-  # Initial outreach to new influencers
-  initial_outreach:
-    subject: "Collaboration Opportunity with {brand_name}"
+
+  # ============================================================
+  # STAGE 1: Initial Response to Interest
+  # ============================================================
+
+  # When influencer responds positively but hasn't given insights or rate
+  request_insights_and_rate:
+    description: "Ask for platform insights and their rate"
+    use_when:
+      - "Influencer expresses interest"
+      - "No insights provided yet"
+      - "No rate provided yet"
     body: |
-      Hi {influencer_name},
+      Hi {{influencer_name}},
+      I hope you are well,
 
-      I hope this message finds you well! I'm {contact_name} from {brand_name}, and I've been following your content for a while now. Your {content_style} really resonates with our brand values.
+      Fantastic to hear your interest!
 
-      We'd love to explore a paid collaboration with you. Here's what we have in mind:
+      To get started, please send me your {{platform}} insights, with the viewers' locations and age range, as well as the overview of the key metrics for the last 28 days.
 
-      📦 What we're offering:
-      - Compensation: ${initial_rate} for {content_type}
-      - Free products from our latest collection
-      - Potential for ongoing partnership
+      For the content, we'd like a short-form video around 30 to 60 seconds. What's your rate?
 
-      📋 What we'd need:
-      - {content_requirements}
-      - Posting within {timeline}
-      - Standard usage rights for our social channels
+      We're looking to make a video with you in that style, eg:
+      https://www.youtube.com/shorts/8W8EZo7nx0w
+      https://www.youtube.com/shorts/513IAnPdL90
+      https://www.youtube.com/shorts/s3vJ0-VpVQU
 
-      Would you be interested in learning more? I'd be happy to share our full creative brief and answer any questions.
+      {{signature}}
 
-      Looking forward to hearing from you!
-
-      Best,
-      {contact_name}
-      {brand_name}
-
-  # Follow-up for non-responsive influencers
-  follow_up_first:
-    subject: "Re: Collaboration Opportunity with {brand_name}"
+  # When they gave insights but no rate
+  request_rate_only:
+    description: "Thank for insights, ask for rate"
+    use_when:
+      - "Insights received"
+      - "No rate provided"
     body: |
-      Hi {influencer_name},
+      Hi {{influencer_name}},
+      I hope you are doing well,
 
-      I wanted to follow up on my previous email about a potential collaboration with {brand_name}.
+      Thank you for sharing your insights!
 
-      We're still very interested in working with you and would love to hear your thoughts. If you have any questions about the partnership or need more details, I'm happy to help!
+      What would be your rate for a 30-60 second short-form video?
 
-      Let me know if you'd like to chat.
+      {{signature}}
 
-      Best,
-      {contact_name}
-
-  follow_up_second:
-    subject: "Re: Collaboration Opportunity with {brand_name}"
+  # When they gave rate but no insights
+  request_insights_only:
+    description: "Acknowledge rate, ask for insights"
+    use_when:
+      - "Rate provided"
+      - "No insights yet"
     body: |
-      Hi {influencer_name},
+      Hi {{influencer_name}},
+      I hope you are well,
 
-      Just circling back one more time! I completely understand if the timing isn't right or if this isn't a fit for you.
+      Thank you for sharing your rate.
 
-      If you're interested but have concerns about the rate or terms, I'm open to discussing. Otherwise, no worries at all – perhaps we can connect on a future campaign!
+      Could you also send me your {{platform}} insights? We need the viewers' locations and age range, as well as the overview of the key metrics for the last 28 days.
 
-      Wishing you all the best,
-      {contact_name}
+      {{signature}}
 
-  # Negotiation responses
-  negotiation_accept_rate:
+  # ============================================================
+  # STAGE 2: Negotiation Responses
+  # ============================================================
+
+  # Standard counter-offer with flat fee
+  counter_offer_flat:
+    description: "Counter their rate with our flat fee offer"
+    use_when:
+      - "They provided a rate"
+      - "Their rate is higher than our budget"
+      - "Views are relatively stable"
     body: |
-      Hi {influencer_name},
+      Hi {{influencer_name}},
+      I hope you are well,
 
-      Great news – we can make {their_rate} work! We're excited to move forward with this collaboration.
+      Thank you for sharing your insights. Based on the current views and engagement of your audience, we'd be able to do ${{our_offer}} USD for this first collaboration.
 
-      Next steps:
-      1. I'll send over our creative brief with all the details
-      2. Please confirm the posting date that works for you
-      3. We'll arrange payment upon content approval
+      Let me know and I'll get you started!
 
-      Looking forward to creating something amazing together!
+      {{signature}}
 
-      Best,
-      {contact_name}
-
-  negotiation_counter:
+  # Counter-offer with performance bonus structure
+  counter_offer_performance:
+    description: "Offer performance-based deal when views fluctuate"
+    use_when:
+      - "Their rate is significantly higher than budget"
+      - "Views are inconsistent/fluctuating"
+      - "Need middle ground in negotiation"
+    requires_input:
+      - "deposit_amount"
+      - "performance_tiers"
     body: |
-      Hi {influencer_name},
+      Hi {{influencer_name}},
+      I hope you are well,
 
-      Thank you for your response! I appreciate you sharing your rates.
+      Thank you for sharing. Currently based on the views and your engagement rate, we won't be able to do that.
 
-      While {their_rate} is a bit above our current campaign budget, I'd love to make this work. The best we can offer is ${our_counter}, which reflects the value we see in your content and audience engagement.
+      We generally book creators that are awesome to work with on an ongoing basis so to kick off we would like to start with a one-off collab to test the waters and see if we can do more!
 
-      This would include:
-      - {content_description}
-      - Full creative freedom within our brand guidelines
-      - Products from our collection
+      I can see your engagement is quite up and down compared to the typical creators we work with. What we normally do is work with a flat fee and that's it but for this collaboration since your views fluctuate a lot, if within 1 week your video reaches:
 
-      Would this work for you? I'm confident we can create something great together.
+      200k views, we will make that $200 total
+      300k views, we will make that $300 total
+      400k views, we will make that $400 total
+      500k+ views, we will make that $500 total
 
-      Best,
-      {contact_name}
+      We generally send over 50% of the flat fee first so we can send you $50 USD first as a security deposit for you, then once your video is posted, in 1 week depending on your performance we will send $50, $100, $200 and so on and so forth.
 
-  negotiation_max_reached:
+      Let me know if you're happy with that and I'll get some details off of you to get you started!
+
+      {{signature}}
+
+  # Hold firm on our offer
+  hold_firm_on_rate:
+    description: "Politely decline their counter, hold our position"
+    use_when:
+      - "They pushed back on our offer"
+      - "We can't go higher"
     body: |
-      Hi {influencer_name},
+      Hi {{influencer_name}},
+      I hope you are well,
 
-      I really appreciate your flexibility in this discussion! Unfortunately, ${our_max} is the absolute maximum we can offer for this campaign.
+      Unfortunately the views are too up and down, for a first collaboration, we won't be able to do ${{their_rate}}. ${{our_offer}} is the highest we can do. If we see that the views and overall performance are good, we'd be able to increase the budget for the next collaboration.
 
-      I understand if this doesn't align with your rates – you know your worth best! If the budget works for you, we'd be thrilled to collaborate. If not, I'd love to keep you in mind for future campaigns with larger budgets.
+      {{signature}}
 
-      Let me know your thoughts!
-
-      Best,
-      {contact_name}
-
-  # Information responses
-  timeline_info:
+  # Slight increase to close deal
+  increase_offer_slightly:
+    description: "Bump offer slightly to close the deal"
+    use_when:
+      - "Close to agreement"
+      - "Small gap to bridge"
     body: |
-      Hi {influencer_name},
+      Hi {{influencer_name}},
+      I hope you are well,
 
-      Great question! Here are the timeline details:
+      We can meet you at ${{our_offer}} USD for this collaboration. Let me know if that works and I'll get you started!
 
-      📅 Campaign Timeline:
-      - Content creation period: {creation_period}
-      - Posting window: {posting_window}
-      - Draft submission deadline: {draft_deadline}
+      {{signature}}
 
-      We're flexible on the exact posting date within this window – just let us know what works best for your content calendar!
-
-      Any other questions?
-
-      Best,
-      {contact_name}
-
-  format_requirements:
+  # Question their metrics
+  question_their_metrics:
+    description: "Push back on their rate by questioning views"
+    use_when:
+      - "Their claimed metrics don't match what we see"
     body: |
-      Hi {influencer_name},
+      Hi {{influencer_name}},
 
-      Happy to share our content requirements!
+      Do you have another channel? Because on my end I see the last few shorts under 50k views. Let me know if you could join us on a price.
 
-      📱 Format Details:
-      - Platform: {platform}
-      - Content type: {content_type}
-      - Duration: {duration}
-      - Aspect ratio: {aspect_ratio}
+      {{signature}}
 
-      📝 Requirements:
-      - Mention/tag @{brand_handle}
-      - Include #{hashtags}
-      - {additional_requirements}
+  # ============================================================
+  # STAGE 3: Deal Agreed - Send Brief
+  # ============================================================
 
-      We encourage creative freedom within these guidelines – your authentic style is what we love!
-
-      Let me know if you need anything else.
-
-      Best,
-      {contact_name}
-
-  # Acceptance/confirmation
-  deal_confirmed:
-    subject: "We're all set! Next steps for our collaboration"
+  # Full brief + payment details (requires promo code from Pauline)
+  deal_accepted_send_brief:
+    description: "Send brief, promo code, and payment details request"
+    use_when:
+      - "Influencer accepted our offer"
+      - "Ready to start production"
+    requires_input:
+      - "promo_code"
+      - "preview_deadline"
     body: |
-      Hi {influencer_name},
+      Hi {{influencer_name}},
+      I hope you are well,
 
-      Wonderful – I'm so excited we're moving forward! 🎉
+      Great! Would you be able to send the preview of the content (edited but unpublished video) by {{NEEDS_DEADLINE}}?
 
-      Here's everything you need:
+      For the content, please follow the brief: HERE
+      You have a code for your community: {{NEEDS_PROMO_CODE}}. Please mention it in the video and ping it in the comment:
 
-      📋 Creative Brief: [Attached/Link]
-      💰 Agreed Rate: ${agreed_rate}
-      📅 Posting Date: {posting_date}
-      📝 Draft Due: {draft_deadline}
+      🎁 Special Gift for Our Viewers!
+      Use promo code {{NEEDS_PROMO_CODE}} on Customuse
+      to get 100 credits when you start a 3-day free trial.
 
-      Please submit your draft content to this email for review. We typically provide feedback within 24-48 hours.
+      You'll find all the details about the points that need to be mentioned, but let me share with you a few examples of videos:
+      https://www.youtube.com/shorts/zK-LUk9AEhs
+      https://www.youtube.com/shorts/2j7FKMWJ7QI
+      https://www.youtube.com/shorts/HVer3_R7-JI
 
-      Payment will be processed within {payment_terms} of content going live.
+      Let me know if you need access to the PRO plan to film the content, I'll give you a 3 days access. Please send me your Username in the app, you can find it in settings.
 
-      Can't wait to see what you create!
+      Would you be able to provide your business transaction details? Our accounting team needs this information to set up the correct invoices and receipts for tax filing purposes.
 
-      Best,
-      {contact_name}
+      Full name - yours, guardian's or manager's
+      Full address - yours, guardian's, manager's, work, office or PO box (whichever you're comfortable sharing)
+      Paypal email -
 
-  # Content received
-  content_received:
+      {{signature}}
+
+  # ============================================================
+  # STAGE 4: Production Phase
+  # ============================================================
+
+  # Grant PRO access
+  grant_pro_access:
+    description: "Confirm PRO access granted"
+    use_when:
+      - "They requested PRO access"
+      - "We gave them access"
     body: |
-      Hi {influencer_name},
+      Hi {{influencer_name}},
+      I hope you are well,
 
-      Thank you for sending over your content! I've received it and will review it shortly.
+      I just gave you access to the PRO plan. Can you send me the preview by {{NEEDS_DEADLINE}}?
 
-      You can expect feedback within 24-48 hours. If everything looks good, I'll give you the green light to post!
+      {{signature}}
 
-      Thanks for your hard work on this.
+  # Request username for PRO access
+  request_username:
+    description: "Ask for their Customuse username"
+    use_when:
+      - "Need to give PRO access"
+      - "Don't have their username"
+    body: |
+      Hi {{influencer_name}},
 
-      Best,
-      {contact_name}
+      I need your username for this. You can find it in settings, under your full name.
+
+      Thanks,
+      Pauline
+      Influencer Marketing Manager
+      https://customuse.com/
+      OUR DISCORD: https://discord.com/invite/customuse
+      MY DISCORD: paulinecustomuse_72058
+
+  # Username not found
+  username_not_found:
+    description: "Their username wasn't found in system"
+    use_when:
+      - "They gave username"
+      - "Can't find it in Customuse"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      It looks like it's not your username in Customuse, I can't find your account. To find your username, go to settings and it should be under your full name. Feel free to send a screenshot.
+
+      {{signature}}
+
+  # Confirm payment sent
+  confirm_payment_sent:
+    description: "Confirm deposit/payment was sent"
+    use_when:
+      - "Payment has been processed"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      Awesome, you have now access to the PRO plan. And the deposit was sent, you should receive it shortly.
+      Send me the preview as soon as you can.
+
+      {{signature}}
+
+  # ============================================================
+  # STAGE 5: Preview Review
+  # ============================================================
+
+  # Preview approved - go publish
+  preview_approved:
+    description: "Approve preview and give publish instructions"
+    use_when:
+      - "Preview received"
+      - "Content looks good"
+    requires_input:
+      - "promo_code"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      Awesome! Go ahead and publish it today. Don't forget to ping your code in the comment:
+
+      🎁 Special Gift for Our Viewers!
+      Use promo code {{promo_code}} on Customuse
+      to get 100 credits when you start a 3-day free trial.
+
+      Add Customuse link in bio: https://customuse.com/
+      Tag us: #Customuse @Customuse3D
+
+      Send me the link once it's live.
+
+      {{signature}}
+
+  # Preview needs minor changes
+  preview_needs_changes:
+    description: "Request specific changes to preview"
+    use_when:
+      - "Preview received"
+      - "Minor adjustments needed"
+    requires_input:
+      - "feedback_points"
+      - "promo_code"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      Looks great, just a few modifications:
+      {{NEEDS_FEEDBACK}}
+
+      Once you've made the changes, please go ahead and upload it at the best time today.
+      Don't forget to ping your code in the comment:
+
+      🎁 Special Gift for Our Viewers!
+      Use promo code {{promo_code}} on Customuse
+      to get 100 credits when you start a 3-day free trial.
+
+      Send me the link once it's live.
+
+      {{signature}}
+
+  # ============================================================
+  # STAGE 6: Post-Publish
+  # ============================================================
+
+  # Confirm video received
+  video_live_confirmation:
+    description: "Acknowledge video is live"
+    use_when:
+      - "They sent the live link"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      Awesome, thank you for the link!
+
+      {{signature}}
+
+  # Circle back for performance bonus
+  performance_bonus_check:
+    description: "Check in about performance bonus"
+    use_when:
+      - "Performance deal"
+      - "One week after publish"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      Let's circle back to see if you hit the 100k views for the bonus.
+
+      {{signature}}
+
+  # Confirm bonus payment
+  bonus_payment_confirmation:
+    description: "Confirm bonus payment amount"
+    use_when:
+      - "Performance threshold met"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      Awesome, you'll receive ${{bonus_amount}} making it a total of ${{total_amount}} as per our agreement of $100 per 100k views.
+
+      {{signature}}
+
+  # ============================================================
+  # RE-ENGAGEMENT
+  # ============================================================
+
+  # Ask about new collaboration
+  re_engagement_new_collab:
+    description: "Reach out for another collaboration"
+    use_when:
+      - "Previous collab completed"
+      - "Want to work together again"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are doing well,
+
+      Would you like to do a new collaboration?
+
+      {{signature}}
+
+  # Follow up on re-engagement
+  re_engagement_follow_up:
+    description: "Follow up on new collab offer"
+    use_when:
+      - "Asked about new collab"
+      - "They expressed interest"
+    body: |
+      Hi {{influencer_name}},
+
+      Great to hear from you! We were thinking of doing another short-form video. What do you think and what's your rate?
+
+      {{signature}}
+
+  # ============================================================
+  # FOLLOW-UPS
+  # ============================================================
+
+  # Generic gentle follow-up
+  follow_up_gentle:
+    description: "Gentle nudge on previous email"
+    use_when:
+      - "No response in 48+ hours"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      Circling back on the previous email.
+
+      {{signature}}
+
+  # Follow up asking for preview
+  follow_up_preview:
+    description: "Ask about preview status"
+    use_when:
+      - "Waiting for preview"
+      - "Deadline approaching"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      Circling back on this. Can you send me the preview?
+
+      {{signature}}
+
+  # ============================================================
+  # EDGE CASES
+  # ============================================================
+
+  # They can't do it now
+  acknowledge_delay:
+    description: "Acknowledge they can't do it now"
+    use_when:
+      - "They said not available now"
+      - "They need to delay"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      That's unfortunate, but let me know as soon as you can do it.
+
+      {{signature}}
+
+  # Thank them for collab
+  thank_for_collab:
+    description: "Thank them after successful collaboration"
+    use_when:
+      - "Collaboration completed successfully"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      Thank you for the collaboration! Looking forward to working together again.
+
+      {{signature}}
+
+  # Clarify payment terms
+  clarify_payment_per_platform:
+    description: "Clarify that views are counted from best platform, not combined"
+    use_when:
+      - "They ask about cross-platform view counting"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      It's not on each platform as I mentioned only 1 short video for the rate. We take the platform with the most views.
+
+      {{signature}}
+
+  # Answer about ongoing bonus
+  clarify_ongoing_bonus:
+    description: "Clarify bonus cap and structure"
+    use_when:
+      - "They ask about bonus continuing past threshold"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are well,
+
+      Yes but up to 1M views within a week.
+
+      {{signature}}
+
+  # Answer question about previous collab
+  confirm_previous_collab:
+    description: "Confirm or ask about previous collaboration"
+    use_when:
+      - "They mention working together before"
+    body: |
+      Hi {{influencer_name}},
+      I hope you are doing well,
+
+      Did we collaborate previously? Your handle/creator name was the same?
+
+      {{signature}}
+
+# Intent to template mapping
+# This helps the AI select the right template based on classified intent
+intent_mapping:
+  interested:
+    - request_insights_and_rate
+  sent_insights_no_rate:
+    - request_rate_only
+  sent_rate_no_insights:
+    - request_insights_only
+  rate_provided:
+    - counter_offer_flat
+    - counter_offer_performance
+  negotiating:
+    - hold_firm_on_rate
+    - increase_offer_slightly
+    - counter_offer_performance
+  accepted_offer:
+    - deal_accepted_send_brief
+  needs_pro_access:
+    - grant_pro_access
+    - request_username
+  sent_username:
+    - confirm_payment_sent
+    - username_not_found
+  sent_preview:
+    - preview_approved
+    - preview_needs_changes
+  content_published:
+    - video_live_confirmation
+  payment_question:
+    - bonus_payment_confirmation
+    - clarify_payment_per_platform
+  no_response:
+    - follow_up_gentle
+  delayed:
+    - acknowledge_delay
+  completed:
+    - thank_for_collab
+    - re_engagement_new_collab
+
+# Signature block (for reference)
+signature: |
+  Best,
+  Pauline
+  Influencer Marketing Manager
+  https://customuse.com/
+  OUR DISCORD: https://discord.com/invite/customuse
+  MY DISCORD: paulinecustomuse_72058

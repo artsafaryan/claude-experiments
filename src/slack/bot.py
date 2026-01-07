@@ -1,6 +1,7 @@
-"""Slack bot for handling approvals and notifications - conversational interface."""
+"""Enhanced Slack bot for Customuse influencer workflow with rich interactions."""
 
 import re
+import json
 from typing import Optional, Callable
 from datetime import datetime
 
@@ -12,7 +13,8 @@ from slack_sdk.errors import SlackApiError
 
 from .messages import MessageBuilder
 from ..database.repository import Repository, get_repository
-from ..database.models import ApprovalStatus, InfluencerStatus
+from ..database.models import ApprovalStatus, InfluencerStatus, PendingApproval
+from ..ai.responder import ResponseGenerator, DraftResponse
 from ..utils.config import get_settings, get_app_config
 from ..utils.logging import get_logger
 
@@ -20,7 +22,7 @@ logger = get_logger("slack")
 
 
 class SlackBot:
-    """Conversational Slack bot for approval workflow and notifications."""
+    """Enhanced Slack bot with rich approval cards and input flows."""
 
     def __init__(
         self,
@@ -34,6 +36,9 @@ class SlackBot:
 
         # Initialize Claude client for conversational understanding
         self.claude = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
+
+        # Initialize response generator for re-generating drafts
+        self.responder = ResponseGenerator()
 
         # Initialize Slack app
         self.app = App(
@@ -86,6 +91,30 @@ class SlackBot:
             user = body["user"]["username"]
             self._handle_approve_all(user, client, body)
 
+        # ============== NEW: Input/Adjustment Actions ==============
+
+        @self.app.action("provide_input")
+        def handle_provide_input(ack, body, client):
+            """Open modal to provide missing inputs (promo code, deadline, etc.)."""
+            ack()
+            approval_id = body["actions"][0]["value"]
+            self._open_input_modal(approval_id, body["trigger_id"], client)
+
+        @self.app.action("adjust_offer")
+        def handle_adjust_offer(ack, body, client):
+            """Open modal to adjust the offer amount."""
+            ack()
+            approval_id = body["actions"][0]["value"]
+            self._open_adjust_offer_modal(approval_id, body["trigger_id"], client)
+
+        @self.app.action("switch_to_performance")
+        def handle_switch_to_performance(ack, body, client):
+            """Switch from flat fee to performance-based offer."""
+            ack()
+            approval_id = body["actions"][0]["value"]
+            user = body["user"]["username"]
+            self._handle_switch_to_performance(approval_id, user, client, body)
+
         # ============== Modal Submissions ==============
 
         @self.app.view("edit_modal")
@@ -95,6 +124,45 @@ class SlackBot:
             edited_text = view["state"]["values"]["response_input"]["response_text"]["value"]
             user = body["user"]["username"]
             self._handle_edited_approval(approval_id, edited_text, user, client)
+
+        @self.app.view("input_modal")
+        def handle_input_modal_submission(ack, body, client, view):
+            """Handle submission of the input modal (promo codes, deadlines, etc.)."""
+            ack()
+            approval_id = view["private_metadata"]
+            user = body["user"]["username"]
+
+            # Extract input values from the modal
+            inputs = {}
+            state_values = view["state"]["values"]
+
+            for block_id, block_data in state_values.items():
+                if block_id.startswith("input_"):
+                    field_name = block_id.replace("input_", "")
+                    action_id = f"value_{field_name}"
+                    if action_id in block_data:
+                        inputs[field_name] = block_data[action_id]["value"]
+
+            self._handle_input_submission(approval_id, inputs, user, client)
+
+        @self.app.view("adjust_offer_modal")
+        def handle_adjust_offer_modal_submission(ack, body, client, view):
+            """Handle submission of the adjust offer modal."""
+            ack()
+            approval_id = view["private_metadata"]
+            user = body["user"]["username"]
+
+            new_offer_str = view["state"]["values"]["new_offer"]["offer_value"]["value"]
+            try:
+                new_offer = float(new_offer_str.replace("$", "").replace(",", "").strip())
+            except ValueError:
+                client.chat_postMessage(
+                    channel=self.channel,
+                    text=f"⚠️ Invalid offer amount: {new_offer_str}",
+                )
+                return
+
+            self._handle_offer_adjustment(approval_id, new_offer, user, client)
 
         # ============== Conversational Message Handling ==============
 
@@ -127,26 +195,233 @@ class SlackBot:
 
             self._handle_conversation(text, channel, user, client)
 
+    # ============== NEW: Input Handling Methods ==============
+
+    def _open_input_modal(self, approval_id: str, trigger_id: str, client: WebClient):
+        """Open modal to provide missing inputs."""
+        try:
+            with self.repo.get_session() as session:
+                approval = session.query(PendingApproval).filter(
+                    PendingApproval.id == approval_id
+                ).first()
+
+                if not approval:
+                    logger.error(f"Approval {approval_id} not found")
+                    return
+
+                conv = approval.conversation
+                influencer_name = conv.influencer.name if conv and conv.influencer else "Unknown"
+
+                # Parse needs_input from the stored JSON or default
+                needs_input = []
+                if approval.extra_data:
+                    try:
+                        extra = json.loads(approval.extra_data) if isinstance(approval.extra_data, str) else approval.extra_data
+                        needs_input = extra.get("needs_input", [])
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                # If no stored needs_input, infer from placeholders in draft
+                if not needs_input:
+                    draft = approval.draft_response or ""
+                    if "{{NEEDS_PROMO_CODE}}" in draft or "{{promo_code}}" in draft:
+                        needs_input.append({"field": "promo_code", "description": "Unique promo code", "type": "text"})
+                    if "{{NEEDS_DEADLINE}}" in draft or "{{preview_deadline}}" in draft:
+                        needs_input.append({"field": "preview_deadline", "description": "Preview deadline", "type": "text"})
+                    if "{{NEEDS_FEEDBACK}}" in draft:
+                        needs_input.append({"field": "feedback", "description": "Feedback", "type": "text"})
+
+                modal = MessageBuilder.build_input_modal(
+                    approval_id=approval_id,
+                    influencer_name=influencer_name,
+                    needs_input=needs_input,
+                    current_draft=approval.draft_response or "",
+                )
+
+            client.views_open(trigger_id=trigger_id, view=modal)
+
+        except SlackApiError as e:
+            logger.error(f"Error opening input modal: {e}")
+
+    def _handle_input_submission(
+        self, approval_id: str, inputs: dict, user: str, client: WebClient
+    ):
+        """Apply user inputs to the draft and approve."""
+        try:
+            with self.repo.get_session() as session:
+                approval = session.query(PendingApproval).filter(
+                    PendingApproval.id == approval_id
+                ).first()
+
+                if not approval:
+                    logger.error(f"Approval {approval_id} not found")
+                    return
+
+                # Get draft and apply inputs
+                draft = approval.draft_response or ""
+
+                # Replace placeholders with provided values
+                for field, value in inputs.items():
+                    placeholders = [
+                        f"{{{{{field}}}}}",
+                        f"{{{{NEEDS_{field.upper()}}}}}",
+                        f"{{{{needs_{field}}}}}",
+                    ]
+                    for placeholder in placeholders:
+                        draft = draft.replace(placeholder, value)
+
+                # Update the approval with the filled draft
+                approval.draft_response = draft
+                session.commit()
+
+                # Get influencer name for notification
+                conv = approval.conversation
+                influencer_name = conv.influencer.name if conv and conv.influencer else "Unknown"
+
+            # Now approve and send
+            self._handle_approval_internal(approval_id, user, client, f"with inputs: {', '.join(inputs.keys())}")
+
+        except Exception as e:
+            logger.error(f"Error handling input submission: {e}")
+            client.chat_postMessage(
+                channel=self.channel,
+                text=f"⚠️ Error applying inputs: {e}",
+            )
+
+    def _open_adjust_offer_modal(self, approval_id: str, trigger_id: str, client: WebClient):
+        """Open modal to adjust offer amount."""
+        try:
+            with self.repo.get_session() as session:
+                approval = session.query(PendingApproval).filter(
+                    PendingApproval.id == approval_id
+                ).first()
+
+                if not approval:
+                    return
+
+                conv = approval.conversation
+                influencer_name = conv.influencer.name if conv and conv.influencer else "Unknown"
+
+                modal = MessageBuilder.build_adjust_offer_modal(
+                    approval_id=approval_id,
+                    influencer_name=influencer_name,
+                    current_offer=approval.our_counter,
+                    their_rate=approval.their_rate,
+                )
+
+            client.views_open(trigger_id=trigger_id, view=modal)
+
+        except SlackApiError as e:
+            logger.error(f"Error opening adjust offer modal: {e}")
+
+    def _handle_offer_adjustment(
+        self, approval_id: str, new_offer: float, user: str, client: WebClient
+    ):
+        """Regenerate draft with adjusted offer amount."""
+        try:
+            with self.repo.get_session() as session:
+                approval = session.query(PendingApproval).filter(
+                    PendingApproval.id == approval_id
+                ).first()
+
+                if not approval:
+                    return
+
+                conv = approval.conversation
+                influencer = conv.influencer if conv else None
+                influencer_name = influencer.name if influencer else "Unknown"
+
+                # Generate new draft with updated offer
+                new_draft = self.responder.generate_counter_offer(
+                    influencer_name=influencer_name,
+                    their_rate=approval.their_rate or 0,
+                    our_counter=new_offer,
+                    use_performance=False,
+                )
+
+                # Update approval with new draft
+                approval.draft_response = new_draft.body
+                approval.our_counter = new_offer
+                session.commit()
+
+            # Notify in channel
+            client.chat_postMessage(
+                channel=self.channel,
+                text=f"🔄 @{user} adjusted offer for *{influencer_name}* to *${new_offer:,.0f}*. Review updated draft above.",
+            )
+
+            # Re-send the approval card with updated info
+            self.send_single_approval(approval_id)
+
+        except Exception as e:
+            logger.error(f"Error adjusting offer: {e}")
+            client.chat_postMessage(
+                channel=self.channel,
+                text=f"⚠️ Error adjusting offer: {e}",
+            )
+
+    def _handle_switch_to_performance(
+        self, approval_id: str, user: str, client: WebClient, body: dict
+    ):
+        """Switch from flat fee to performance-based offer."""
+        try:
+            with self.repo.get_session() as session:
+                approval = session.query(PendingApproval).filter(
+                    PendingApproval.id == approval_id
+                ).first()
+
+                if not approval:
+                    return
+
+                conv = approval.conversation
+                influencer = conv.influencer if conv else None
+                influencer_name = influencer.name if influencer else "Unknown"
+
+                # Generate performance-based draft
+                new_draft = self.responder.generate_counter_offer(
+                    influencer_name=influencer_name,
+                    their_rate=approval.their_rate or 0,
+                    our_counter=approval.our_counter or 100,
+                    use_performance=True,
+                )
+
+                # Update approval
+                approval.draft_response = new_draft.body
+                approval.response_type = "counter_offer_performance"
+                session.commit()
+
+            # Notify and re-send card
+            client.chat_postMessage(
+                channel=self.channel,
+                text=f"📊 @{user} switched to *performance-based offer* for *{influencer_name}*.",
+            )
+
+            self.send_single_approval(approval_id)
+
+        except Exception as e:
+            logger.error(f"Error switching to performance: {e}")
+
+    # ============== Conversation Handling ==============
+
     def _handle_conversation(self, user_message: str, channel: str, user: str, client: WebClient):
         """Handle conversational messages using Claude to understand intent."""
         try:
             # Get current system state for context
             state = self._get_system_state()
 
-            # Use Claude to understand what the user wants and generate response
-            system_prompt = f"""You are a friendly assistant for an influencer marketing automation system.
-You help users check on their influencer pipeline, pending approvals, and answer questions about the system.
+            # Use Claude to understand what the user wants
+            system_prompt = f"""You are a friendly assistant for Pauline's influencer marketing automation system at Customuse.
+You help check on the pipeline, pending approvals, and answer questions.
 
-Current system state:
+Current state:
 {state}
 
-Based on the user's message, provide a helpful, conversational response. Be concise but friendly.
-If they're asking about status, approvals, or the pipeline - give them the relevant info from the state above.
-If they want to see pending approvals, tell them you'll show the approval cards.
-If they're asking how to do something, explain it simply.
-If you're not sure what they want, ask clarifying questions.
+Based on Pauline's message, provide a helpful, conversational response. Be concise - this is Slack.
+If she's asking about approvals, status, or the pipeline - give her the relevant info.
+If she wants to see pending approvals, tell her you'll show the approval cards.
+If she's asking how to do something, explain simply.
 
-Keep responses short and to the point - this is Slack, not email."""
+Keep responses short and friendly."""
 
             response = self.claude.messages.create(
                 model="claude-sonnet-4-20250514",
@@ -181,7 +456,7 @@ Keep responses short and to the point - this is Slack, not email."""
 
     def _should_show_approvals(self, message: str) -> bool:
         """Quick check if user is asking to see approvals."""
-        keywords = ["approval", "pending", "review", "show me", "what's waiting", "queue"]
+        keywords = ["approval", "pending", "review", "show me", "what's waiting", "queue", "drafts"]
         message_lower = message.lower()
         return any(kw in message_lower for kw in keywords)
 
@@ -209,9 +484,8 @@ Keep responses short and to the point - this is Slack, not email."""
             lines.append(f"\nPending Approvals: {len(pending_approvals)}")
             if pending_approvals:
                 lines.append("Waiting for review:")
-                for approval in pending_approvals[:5]:  # Show first 5
+                for approval in pending_approvals[:5]:
                     with self.repo.get_session() as session:
-                        from ..database.models import PendingApproval
                         fresh = session.query(PendingApproval).filter(
                             PendingApproval.id == approval.id
                         ).first()
@@ -231,27 +505,35 @@ Keep responses short and to the point - this is Slack, not email."""
 
     def _handle_approval(self, approval_id: str, user: str, client: WebClient, body: dict):
         """Handle approval of a response."""
+        self._handle_approval_internal(approval_id, user, client)
+        # Update the message to show it's been actioned
+        self._update_card_status(
+            client,
+            body["channel"]["id"],
+            body["message"]["ts"],
+            approval_id,
+            f"✅ Approved and sent by @{user}",
+        )
+
+    def _handle_approval_internal(
+        self, approval_id: str, user: str, client: WebClient, extra_info: str = ""
+    ):
+        """Internal approval handler."""
         try:
             approval = self.repo.approve_response(approval_id)
             if approval:
-                logger.info(f"Response {approval_id} approved by {user}")
+                logger.info(f"Response {approval_id} approved by {user} {extra_info}")
 
                 # Trigger callback to send email
                 if self.on_approval_callback:
                     self.on_approval_callback(approval)
 
-                # Update the message to show it's been actioned
-                self._update_card_status(
-                    client,
-                    body["channel"]["id"],
-                    body["message"]["ts"],
-                    approval_id,
-                    f"✅ Approved and sent by @{user}",
-                )
-
         except Exception as e:
             logger.error(f"Error handling approval: {e}")
-            self._send_error(client, body["channel"]["id"], f"Error approving: {e}")
+            client.chat_postMessage(
+                channel=self.channel,
+                text=f"⚠️ Error approving: {e}",
+            )
 
     def _handle_rejection(self, approval_id: str, user: str, client: WebClient, body: dict):
         """Handle rejection of a response."""
@@ -296,13 +578,30 @@ Keep responses short and to the point - this is Slack, not email."""
         """Handle bulk approval of all pending responses."""
         try:
             pending = self.repo.get_pending_approvals()
+
+            # Filter out any that need input
+            ready_to_send = []
+            needs_input = []
+
+            for approval in pending:
+                with self.repo.get_session() as session:
+                    fresh = session.query(PendingApproval).filter(
+                        PendingApproval.id == approval.id
+                    ).first()
+                    if fresh:
+                        draft = fresh.draft_response or ""
+                        if "{{NEEDS_" in draft or "{{promo_code}}" in draft or "{{preview_deadline}}" in draft:
+                            needs_input.append(fresh.id)
+                        else:
+                            ready_to_send.append(fresh.id)
+
             approved_count = 0
             errors = []
 
-            for approval in pending:
+            for approval_id in ready_to_send:
                 try:
-                    self.repo.approve_response(approval.id)
-                    if self.on_approval_callback:
+                    approval = self.repo.approve_response(approval_id)
+                    if self.on_approval_callback and approval:
                         self.on_approval_callback(approval)
                     approved_count += 1
                 except Exception as e:
@@ -312,6 +611,8 @@ Keep responses short and to the point - this is Slack, not email."""
 
             # Send confirmation
             msg = f"✅ {approved_count} responses approved and sent by @{user}"
+            if needs_input:
+                msg += f"\n⚠️ {len(needs_input)} responses need additional info before sending"
             if errors:
                 msg += f"\n⚠️ {len(errors)} errors occurred"
 
@@ -329,9 +630,7 @@ Keep responses short and to the point - this is Slack, not email."""
     def _open_edit_modal(self, approval_id: str, trigger_id: str, client: WebClient):
         """Open modal for editing a response."""
         try:
-            # Get approval details from database
             with self.repo.get_session() as session:
-                from ..database.models import PendingApproval
                 approval = session.query(PendingApproval).filter(
                     PendingApproval.id == approval_id
                 ).first()
@@ -340,42 +639,15 @@ Keep responses short and to the point - this is Slack, not email."""
                     logger.error(f"Approval {approval_id} not found")
                     return
 
-                # Get influencer info
                 conv = approval.conversation
                 influencer_name = conv.influencer.name if conv and conv.influencer else "Unknown"
                 draft = approval.draft_response
 
-            modal = {
-                "type": "modal",
-                "callback_id": "edit_modal",
-                "private_metadata": approval_id,
-                "title": {"type": "plain_text", "text": "Edit Response", "emoji": True},
-                "submit": {"type": "plain_text", "text": "Save & Send", "emoji": True},
-                "close": {"type": "plain_text", "text": "Cancel", "emoji": True},
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"✏️ Editing response to *{influencer_name}*",
-                        },
-                    },
-                    {"type": "divider"},
-                    {
-                        "type": "input",
-                        "block_id": "response_input",
-                        "element": {
-                            "type": "plain_text_input",
-                            "action_id": "response_text",
-                            "multiline": True,
-                            "initial_value": draft,
-                            "min_length": 10,
-                        },
-                        "label": {"type": "plain_text", "text": "Email Response"},
-                        "hint": {"type": "plain_text", "text": "Edit the email content below. It will be sent immediately after saving."},
-                    },
-                ],
-            }
+            modal = MessageBuilder.build_edit_modal(
+                approval_id=approval_id,
+                influencer_name=influencer_name,
+                current_draft=draft or "",
+            )
 
             client.views_open(trigger_id=trigger_id, view=modal)
 
@@ -386,7 +658,6 @@ Keep responses short and to the point - this is Slack, not email."""
         """Show full details in a modal."""
         try:
             with self.repo.get_session() as session:
-                from ..database.models import PendingApproval
                 approval = session.query(PendingApproval).filter(
                     PendingApproval.id == approval_id
                 ).first()
@@ -402,45 +673,69 @@ Keep responses short and to the point - this is Slack, not email."""
                     f"*Name:* {influencer.name if influencer else 'Unknown'}\n"
                     f"*Email:* {influencer.email if influencer else 'Unknown'}\n"
                     f"*Platform:* {influencer.platform or 'N/A'}\n"
-                    f"*Handle:* @{influencer.handle or 'N/A'}\n"
-                    f"*Followers:* {influencer.follower_count:,}" if influencer and influencer.follower_count else "N/A"
+                    f"*Handle:* @{influencer.handle or 'N/A'}"
                 )
 
                 their_message = approval.their_last_message or "No message recorded"
-                our_response = approval.draft_response
+                our_response = approval.draft_response or ""
+
+                # Pricing info
+                pricing_info = ""
+                if approval.their_rate:
+                    pricing_info += f"*Their ask:* ${approval.their_rate:,.0f}\n"
+                if approval.our_counter:
+                    pricing_info += f"*Our offer:* ${approval.our_counter:,.0f}\n"
+
+            modal_blocks = [
+                {
+                    "type": "header",
+                    "text": {"type": "plain_text", "text": "👤 Influencer Info", "emoji": True},
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": influencer_info},
+                },
+            ]
+
+            if pricing_info:
+                modal_blocks.extend([
+                    {"type": "divider"},
+                    {
+                        "type": "header",
+                        "text": {"type": "plain_text", "text": "💰 Pricing", "emoji": True},
+                    },
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": pricing_info},
+                    },
+                ])
+
+            modal_blocks.extend([
+                {"type": "divider"},
+                {
+                    "type": "header",
+                    "text": {"type": "plain_text", "text": "📩 Their Message", "emoji": True},
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": their_message[:2900]},
+                },
+                {"type": "divider"},
+                {
+                    "type": "header",
+                    "text": {"type": "plain_text", "text": "📤 Our Drafted Response", "emoji": True},
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"```{our_response[:2800]}```"},
+                },
+            ])
 
             modal = {
                 "type": "modal",
                 "title": {"type": "plain_text", "text": "Full Details", "emoji": True},
                 "close": {"type": "plain_text", "text": "Close", "emoji": True},
-                "blocks": [
-                    {
-                        "type": "header",
-                        "text": {"type": "plain_text", "text": "👤 Influencer Info", "emoji": True},
-                    },
-                    {
-                        "type": "section",
-                        "text": {"type": "mrkdwn", "text": influencer_info},
-                    },
-                    {"type": "divider"},
-                    {
-                        "type": "header",
-                        "text": {"type": "plain_text", "text": "📩 Their Message", "emoji": True},
-                    },
-                    {
-                        "type": "section",
-                        "text": {"type": "mrkdwn", "text": their_message[:2900]},  # Slack limit
-                    },
-                    {"type": "divider"},
-                    {
-                        "type": "header",
-                        "text": {"type": "plain_text", "text": "📤 Our Drafted Response", "emoji": True},
-                    },
-                    {
-                        "type": "section",
-                        "text": {"type": "mrkdwn", "text": our_response[:2900]},
-                    },
-                ],
+                "blocks": modal_blocks,
             }
 
             client.views_open(trigger_id=trigger_id, view=modal)
@@ -465,7 +760,6 @@ Keep responses short and to the point - this is Slack, not email."""
         approvals_data = []
         for approval in pending:
             with self.repo.get_session() as session:
-                from ..database.models import PendingApproval
                 fresh_approval = session.query(PendingApproval).filter(
                     PendingApproval.id == approval.id
                 ).first()
@@ -474,16 +768,39 @@ Keep responses short and to the point - this is Slack, not email."""
                     conv = fresh_approval.conversation
                     influencer = conv.influencer if conv else None
 
+                    # Check for needs_input from extra_data or infer from placeholders
+                    needs_input = []
+                    draft = fresh_approval.draft_response or ""
+
+                    if fresh_approval.extra_data:
+                        try:
+                            extra = json.loads(fresh_approval.extra_data) if isinstance(fresh_approval.extra_data, str) else fresh_approval.extra_data
+                            needs_input = extra.get("needs_input", [])
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+
+                    # Infer from placeholders if not set
+                    if not needs_input:
+                        if "{{NEEDS_PROMO_CODE}}" in draft or "{{promo_code}}" in draft:
+                            needs_input.append({"field": "promo_code", "description": "Unique promo code"})
+                        if "{{NEEDS_DEADLINE}}" in draft or "{{preview_deadline}}" in draft:
+                            needs_input.append({"field": "preview_deadline", "description": "Preview deadline"})
+                        if "{{NEEDS_FEEDBACK}}" in draft:
+                            needs_input.append({"field": "feedback", "description": "Feedback"})
+
                     approvals_data.append({
                         "id": fresh_approval.id,
                         "influencer_name": influencer.name if influencer else "Unknown",
                         "influencer_handle": influencer.handle if influencer else None,
                         "their_message": fresh_approval.their_last_message or "",
-                        "draft_response": fresh_approval.draft_response,
+                        "draft_response": draft,
                         "response_type": fresh_approval.response_type,
                         "their_rate": fresh_approval.their_rate,
                         "our_counter": fresh_approval.our_counter,
                         "priority": fresh_approval.priority,
+                        "needs_input": needs_input if needs_input else None,
+                        "template_used": fresh_approval.response_type,
+                        "platform": influencer.platform if influencer else None,
                     })
 
         blocks = MessageBuilder.build_approval_batch(approvals_data)
@@ -590,7 +907,6 @@ Keep responses short and to the point - this is Slack, not email."""
         """Send a single approval card to the channel."""
         try:
             with self.repo.get_session() as session:
-                from ..database.models import PendingApproval
                 approval = session.query(PendingApproval).filter(
                     PendingApproval.id == approval_id
                 ).first()
@@ -601,16 +917,35 @@ Keep responses short and to the point - this is Slack, not email."""
                 conv = approval.conversation
                 influencer = conv.influencer if conv else None
 
+                # Check for needs_input
+                needs_input = []
+                draft = approval.draft_response or ""
+
+                if approval.extra_data:
+                    try:
+                        extra = json.loads(approval.extra_data) if isinstance(approval.extra_data, str) else approval.extra_data
+                        needs_input = extra.get("needs_input", [])
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                if not needs_input:
+                    if "{{NEEDS_PROMO_CODE}}" in draft or "{{promo_code}}" in draft:
+                        needs_input.append({"field": "promo_code", "description": "Unique promo code"})
+                    if "{{NEEDS_DEADLINE}}" in draft:
+                        needs_input.append({"field": "preview_deadline", "description": "Preview deadline"})
+
                 approval_data = {
                     "id": approval.id,
                     "influencer_name": influencer.name if influencer else "Unknown",
                     "influencer_handle": influencer.handle if influencer else None,
                     "their_message": approval.their_last_message or "",
-                    "draft_response": approval.draft_response,
+                    "draft_response": draft,
                     "response_type": approval.response_type,
                     "their_rate": approval.their_rate,
                     "our_counter": approval.our_counter,
                     "priority": approval.priority,
+                    "needs_input": needs_input if needs_input else None,
+                    "platform": influencer.platform if influencer else None,
                 }
 
             blocks = MessageBuilder.build_approval_card(**approval_data)

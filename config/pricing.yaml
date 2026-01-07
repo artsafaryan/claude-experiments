@@ -1,53 +1,117 @@
-# Pricing Configuration for Influencer Deals
+# Customuse Influencer Pricing Configuration
+# Used by AI to understand budget constraints and negotiation parameters
 
 pricing:
-  # Base rates by follower tier
-  tiers:
-    nano:
-      followers_min: 1000
-      followers_max: 10000
-      rate_min: 50
-      rate_max: 150
-    micro:
-      followers_min: 10000
-      followers_max: 50000
-      rate_min: 150
-      rate_max: 500
-    mid:
-      followers_min: 50000
-      followers_max: 500000
-      rate_min: 500
-      rate_max: 2000
-    macro:
-      followers_min: 500000
-      followers_max: 1000000
-      rate_min: 2000
-      rate_max: 10000
-    mega:
-      followers_min: 1000000
-      followers_max: null  # No upper limit
-      rate_min: 10000
-      rate_max: 50000
+  # Content type we're paying for
+  content_type: "short-form video"
+  duration: "30-60 seconds"
+  platforms:
+    - "TikTok"
+    - "YouTube Shorts"
 
-  # Content type multipliers (applied to base rate)
-  content_multipliers:
-    instagram_reel: 1.0
-    instagram_story: 0.5
-    instagram_post: 0.8
-    tiktok_video: 1.2
-    youtube_short: 1.5
-    youtube_video: 3.0
-    twitter_post: 0.4
+  # Budget ranges for short-form content
+  # These are general guidelines - actual offers depend on views/engagement
+  budget_ranges:
+    typical_minimum: 50      # Smallest we'd typically offer
+    typical_maximum: 500     # Most common deals are in this range
+    upper_limit: 1000        # Rarely go above this
+    absolute_maximum: 2000   # Need special approval above this
 
-  # Negotiation boundaries
+  # How we determine offers (based on views, not followers)
+  offer_calculation:
+    # Views-based pricing for shorts
+    base_rate_per_1k_views: 1.0  # Roughly $1 per 1k views as baseline
+    minimum_offer: 50
+
+    # Engagement quality multipliers
+    engagement_adjustments:
+      consistent_views: 1.2    # Stable view counts = premium
+      fluctuating_views: 0.8   # Up and down views = discount
+      high_engagement: 1.1     # Good comments/likes ratio
+
+  # Performance bonus structure
+  # This is the standard structure - can be adjusted per deal via Slack
+  performance_bonus:
+    enabled: true
+    description: "$100 per 100k views within 1 week, capped at 1M views"
+
+    # Default tier structure (can be customized via Slack)
+    default_tiers:
+      - views: 100000
+        total_payment: 100
+      - views: 200000
+        total_payment: 200
+      - views: 300000
+        total_payment: 300
+      - views: 400000
+        total_payment: 400
+      - views: 500000
+        total_payment: 500
+      - views: 1000000
+        total_payment: 1000
+
+    # Measurement window
+    window_days: 7
+
+    # Maximum bonus cap
+    max_views_for_bonus: 1000000  # Cap at 1M views
+
+    # Deposit structure for performance deals
+    deposit:
+      percentage: 50           # 50% upfront
+      typical_amount: 50       # $50 typical security deposit
+
+  # Negotiation parameters
   negotiation:
-    max_increase_percent: 20      # Maximum we'll go above initial offer
-    counter_offer_percent: 10     # When they counter, we meet them X% of the way
-    auto_approve_under: 100       # Auto-approve deals under this amount
-    escalate_over: 5000           # Always escalate deals over this amount
+    # When to use performance-based offers
+    offer_performance_when:
+      - "Views are inconsistent/fluctuating"
+      - "Large gap between their ask and our budget"
+      - "They're hesitant about flat fee"
+      - "Their rate is significantly higher than our typical budget"
 
-  # Package discounts
-  package_discounts:
-    2_posts: 0.10   # 10% discount for 2 posts
-    3_posts: 0.15   # 15% discount for 3 posts
-    5_posts: 0.20   # 20% discount for 5+ posts
+    # How much we can increase from initial offer
+    max_increase_from_initial: 0.30  # Can go up to 30% above initial offer
+
+    # Counter-offer strategy
+    counter_strategy:
+      # When they counter, meet partway
+      meet_in_middle_threshold: 1.5  # If their ask is <1.5x our offer, split difference
+      # When gap is too large, switch to performance-based
+      switch_to_performance_threshold: 2.0  # If their ask is >2x our offer
+
+  # Escalation triggers (always need human review)
+  escalation_triggers:
+    rate_threshold: 1000      # Any rate above $1000 for shorts
+    keywords:
+      - "agency"
+      - "manager"
+      - "contract"
+      - "legal"
+      - "exclusive"
+      - "exclusivity"
+      - "long-term"
+      - "ongoing partnership"
+      - "long-form"
+      - "usage rights"
+      - "licensing"
+      - "competitor"
+
+  # Auto-approve settings
+  auto_approve:
+    enabled: false  # NEVER auto-approve - Pauline reviews everything
+
+  # Payment terms
+  payment:
+    method: "PayPal"
+    timing:
+      flat_fee: "after content goes live"
+      performance:
+        deposit: "before content creation"
+        final: "1 week after publish, based on views"
+
+  # Required information for payment
+  payment_details_required:
+    - "Full name (theirs, guardian's, or manager's)"
+    - "Full address"
+    - "PayPal email"

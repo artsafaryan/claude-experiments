@@ -1,0 +1,103 @@
+# Customuse Influencer Marketing - Company & Campaign Context
+# This file contains all context needed for the AI to generate appropriate responses
+
+company:
+  name: "Customuse"
+  website: "https://customuse.com"
+  product_description: |
+    Customuse is a platform for Roblox players and game developers to create
+    3D accessories and World Assets. It's a viral product amongst Roblox players
+    with features that let creators design custom items for the Roblox ecosystem.
+  user_count: "10M+"
+  discord: "https://discord.com/invite/customuse"
+
+  # Social proof for outreach/responses
+  social_proof:
+    creators_worked_with:
+      - "Seekme"
+      - "MickeyMunch"
+      - "CheesyMembey"
+    total_views: "400M+"
+
+# Marketing Manager who the bot represents
+marketing_manager:
+  name: "Pauline"
+  full_name: "Pauline Aubert"
+  email: "pauline.aubert@customuse.com"
+  title: "Influencer Marketing Manager"
+  discord_handle: "paulinecustomuse_72058"
+
+# Email signature block (used at end of all emails)
+signature: |
+  Best,
+  Pauline
+  Influencer Marketing Manager
+  https://customuse.com/
+  OUR DISCORD: https://discord.com/invite/customuse
+  MY DISCORD: paulinecustomuse_72058
+
+# Campaign configuration
+campaign:
+  # Type of content we're looking for
+  content_type: "short-form video"
+  content_duration: "30 to 60 seconds"
+  platforms:
+    - "TikTok"
+    - "YouTube Shorts"
+
+  # Campaign structure
+  typical_structure: "one-off posts"
+
+  # What we offer
+  compensation_types:
+    - "flat_fee"
+    - "flat_fee_with_performance_bonus"
+
+  # Link to the content brief (placeholder - Pauline uses "HERE" as clickable link)
+  brief_link: "HERE"
+
+# Example videos to share with influencers
+example_videos:
+  # Style examples (what we're looking for)
+  style_examples:
+    - "https://www.youtube.com/shorts/8W8EZo7nx0w"
+    - "https://www.youtube.com/shorts/513IAnPdL90"
+    - "https://www.youtube.com/shorts/s3vJ0-VpVQU"
+
+  # Reference examples (past successful collaborations)
+  reference_examples:
+    - "https://www.youtube.com/shorts/zK-LUk9AEhs"
+    - "https://www.youtube.com/shorts/2j7FKMWJ7QI"
+    - "https://www.youtube.com/shorts/HVer3_R7-JI"
+
+# Promo code template (code itself comes from Pauline per influencer)
+promo_code_template: |
+  🎁 Special Gift for Our Viewers!
+  Use promo code {{CODE}} on Customuse
+  to get 100 credits when you start a 3-day free trial.
+
+# Publishing instructions for influencers
+publishing_instructions:
+  link_in_bio: "https://customuse.com/"
+  hashtag: "#Customuse"
+  tag: "@Customuse3D"
+  comment_ping: true  # Remind to ping code in comments
+
+# Payment details request template
+payment_details_request: |
+  Would you be able to provide your business transaction details? Our accounting team needs this information to set up the correct invoices and receipts for tax filing purposes.
+
+  Full name - yours, guardian's or manager's
+  Full address - yours, guardian's, manager's, work, office or PO box (whichever you're comfortable sharing)
+  Paypal email -
+
+# Insights request template
+insights_request: |
+  To get started, please send me your {{platform}} insights, with the viewers' locations and age range, as well as the overview of the key metrics for the last 28 days.
+
+# What we need from influencers
+required_insights:
+  - "Followers/Viewers location (countries)"
+  - "Age range"
+  - "Gender breakdown"
+  - "Key metrics for last 28 days"
