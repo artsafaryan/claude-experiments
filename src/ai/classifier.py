@@ -176,7 +176,7 @@ Respond with JSON:
 
         try:
             response = self.client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-3-5-haiku-20241022",  # Haiku for cost-effective classification
                 max_tokens=800,
                 messages=[
                     {"role": "user", "content": user_prompt}

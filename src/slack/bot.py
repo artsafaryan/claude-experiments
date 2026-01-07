@@ -424,7 +424,7 @@ If she's asking how to do something, explain simply.
 Keep responses short and friendly."""
 
             response = self.claude.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-3-5-haiku-20241022",  # Haiku for cost-effective chat
                 max_tokens=500,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_message}]

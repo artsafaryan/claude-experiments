@@ -190,7 +190,7 @@ Example: YES - Creator discussing Instagram post rates
 Example: NO - Automated billing notification"""
 
             response = self.claude.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-3-5-haiku-20241022",  # Haiku for cost-effective filtering
                 max_tokens=50,
                 messages=[{"role": "user", "content": prompt}]
             )
