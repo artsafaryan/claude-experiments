@@ -442,6 +442,11 @@ class SlackBot:
                 )
             return
 
+        # Database debug command
+        if any(kw in message_lower for kw in ["debug db", "debug database", "db stats", "database stats"]):
+            self._handle_debug_db(channel, client)
+            return
+
         # ========== CLAUDE-POWERED RESPONSES ==========
         try:
             # Get current system state for context
@@ -525,6 +530,55 @@ Keep responses short and friendly."""
             client.chat_postMessage(
                 channel=channel,
                 text=f"Error checking emails: {str(e)[:100]}",
+            )
+
+    def _handle_debug_db(self, channel: str, client: WebClient):
+        """Show database statistics for debugging."""
+        try:
+            from ..database.models import Influencer, Conversation, Email, PendingApproval
+            from sqlalchemy import func
+
+            with self.repo.get_session() as session:
+                # Count records in each table
+                influencer_count = session.query(func.count(Influencer.id)).scalar()
+                conversation_count = session.query(func.count(Conversation.id)).scalar()
+                email_count = session.query(func.count(Email.id)).scalar()
+                pending_count = session.query(func.count(PendingApproval.id)).filter(
+                    PendingApproval.status == ApprovalStatus.PENDING
+                ).scalar()
+                total_approval_count = session.query(func.count(PendingApproval.id)).scalar()
+
+                # Get database URL (masked)
+                db_url = self.repo.database_url
+                if "://" in db_url:
+                    db_type = db_url.split("://")[0]
+                    if "@" in db_url:
+                        # Mask credentials
+                        db_display = f"{db_type}://***@{db_url.split('@')[-1][:30]}..."
+                    else:
+                        db_display = f"{db_type}://{db_url.split('://')[-1][:30]}..."
+                else:
+                    db_display = db_url[:50]
+
+            debug_text = f"""🔧 *Database Debug Info*
+• Type: `{db_display}`
+• Influencers: {influencer_count}
+• Conversations: {conversation_count}
+• Emails: {email_count}
+• Pending Approvals: {pending_count}
+• Total Approvals (all statuses): {total_approval_count}
+
+_If counts are 0 after processing emails, the database may have been wiped on deploy. Use PostgreSQL for persistence._"""
+
+            client.chat_postMessage(
+                channel=channel,
+                text=debug_text,
+            )
+        except Exception as e:
+            logger.error(f"Error in debug db: {e}")
+            client.chat_postMessage(
+                channel=channel,
+                text=f"Error getting DB stats: {str(e)[:100]}",
             )
 
     def _should_show_approvals(self, message: str) -> bool:

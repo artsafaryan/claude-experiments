@@ -25,8 +25,9 @@ class Settings(BaseSettings):
     gmail_credentials_file: str = "credentials.json"
     gmail_token_file: str = "token.json"
 
-    # Database
-    database_url: str = "sqlite:///./influencer_automation.db"
+    # Database - Railway sets DATABASE_URL automatically for PostgreSQL
+    # Falls back to SQLite for local development only
+    database_url: str = os.environ.get("DATABASE_URL", "sqlite:///./influencer_automation.db")
 
     # App settings
     environment: str = "development"

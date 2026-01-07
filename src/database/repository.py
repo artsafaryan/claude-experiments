@@ -26,6 +26,11 @@ class Repository:
 
     def __init__(self, database_url: Optional[str] = None):
         self.database_url = database_url or get_settings().database_url
+
+        # Railway uses postgres:// but SQLAlchemy 2.0+ requires postgresql://
+        if self.database_url.startswith("postgres://"):
+            self.database_url = self.database_url.replace("postgres://", "postgresql://", 1)
+
         self.engine = create_engine(self.database_url)
         # expire_on_commit=False allows objects to be used after session closes
         self.SessionLocal = sessionmaker(bind=self.engine, expire_on_commit=False)
