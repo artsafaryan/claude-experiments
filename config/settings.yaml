@@ -17,7 +17,7 @@ gmail:
     - "https://www.googleapis.com/auth/gmail.readonly"
     - "https://www.googleapis.com/auth/gmail.send"
     - "https://www.googleapis.com/auth/gmail.modify"
-  check_interval_seconds: 60  # How often to check for new emails
+  check_interval_seconds: 300  # Check every 5 minutes (was 60s - way too frequent)
   label_filter: "INBOX"  # Gmail label to monitor
 
 # Slack Settings

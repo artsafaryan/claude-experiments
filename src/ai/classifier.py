@@ -141,8 +141,8 @@ Respond in JSON format only."""
             history_context = "\n\nPrevious messages in this conversation:\n"
             for msg in conversation_history[-5:]:  # Last 5 messages
                 direction = "Pauline (us)" if msg["direction"] == "outbound" else "Influencer"
-                body_preview = msg['body'][:500] if msg['body'] else ""
-                history_context += f"\n[{direction}]:\n{body_preview}\n"
+                body_preview = msg['body'][:300] if msg['body'] else ""
+                history_context += f"[{direction}]: {body_preview}...\n"
 
         # Build the prompt
         user_prompt = f"""Classify this email from an influencer:

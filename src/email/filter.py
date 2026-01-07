@@ -160,8 +160,8 @@ class EmailFilter:
         This is a quick screening check, not full classification.
         """
         try:
-            # Truncate body to save tokens - we just need enough to make a decision
-            body_preview = body[:1500] if len(body) > 1500 else body
+            # Truncate body to save tokens - just need enough context for decision
+            body_preview = body[:500] if len(body) > 500 else body
 
             prompt = f"""You are filtering emails for an influencer marketing automation system.
 Your job is to determine if this email is from an influencer or content creator discussing a potential brand collaboration, partnership, or sponsored content opportunity.
