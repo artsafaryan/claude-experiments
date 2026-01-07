@@ -28,11 +28,13 @@ class SlackBot:
         self,
         repository: Optional[Repository] = None,
         on_approval_callback: Optional[Callable] = None,
+        email_processor: Optional[object] = None,
     ):
         self.settings = get_settings()
         self.app_config = get_app_config()
         self.repo = repository or get_repository()
         self.on_approval_callback = on_approval_callback
+        self.email_processor = email_processor  # For manual email checks
 
         # Initialize Claude client for conversational understanding
         self.claude = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
@@ -405,6 +407,25 @@ class SlackBot:
 
     def _handle_conversation(self, user_message: str, channel: str, user: str, client: WebClient):
         """Handle conversational messages using Claude to understand intent."""
+        message_lower = user_message.lower().strip()
+
+        # ========== QUICK COMMANDS (no Claude needed) ==========
+
+        # Ping / status check
+        if any(kw in message_lower for kw in ["ping", "alive", "you there", "hello", "hi", "status", "are you on"]):
+            pending_count = len(self.repo.get_pending_approvals())
+            client.chat_postMessage(
+                channel=channel,
+                text=f"I'm online and running. {pending_count} pending approval(s) in queue.",
+            )
+            return
+
+        # Manual email check
+        if any(kw in message_lower for kw in ["check email", "check mail", "scan email", "fetch email", "check inbox", "scan inbox"]):
+            self._handle_manual_email_check(channel, client)
+            return
+
+        # ========== CLAUDE-POWERED RESPONSES ==========
         try:
             # Get current system state for context
             state = self._get_system_state()
@@ -452,6 +473,41 @@ Keep responses short and friendly."""
             client.chat_postMessage(
                 channel=channel,
                 text="Sorry, I hit a snag. Try again or check the logs for details.",
+            )
+
+    def _handle_manual_email_check(self, channel: str, client: WebClient):
+        """Manually trigger an email check."""
+        client.chat_postMessage(
+            channel=channel,
+            text="Checking inbox now...",
+        )
+
+        if not self.email_processor:
+            client.chat_postMessage(
+                channel=channel,
+                text="Email processor not available. Try redeploying.",
+            )
+            return
+
+        try:
+            processed = self.email_processor.process_new_emails()
+            if processed:
+                client.chat_postMessage(
+                    channel=channel,
+                    text=f"Found and processed {len(processed)} new email(s). Check above for any new approval cards.",
+                )
+                # Send approval cards if any were created
+                self._send_approvals_to_channel(channel, client)
+            else:
+                client.chat_postMessage(
+                    channel=channel,
+                    text="No new influencer emails found.",
+                )
+        except Exception as e:
+            logger.error(f"Error in manual email check: {e}")
+            client.chat_postMessage(
+                channel=channel,
+                text=f"Error checking emails: {str(e)[:100]}",
             )
 
     def _should_show_approvals(self, message: str) -> bool:

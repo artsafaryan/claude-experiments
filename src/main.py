@@ -116,7 +116,10 @@ def run_daemon():
             repo.mark_approval_sent(approval.id)
             logger.info(f"Sent approved response for {conv.influencer.email}")
 
-        slack_bot = SlackBot(on_approval_callback=on_approval)
+        slack_bot = SlackBot(
+            on_approval_callback=on_approval,
+            email_processor=processor,  # For manual "check emails" command
+        )
         logger.info("Slack bot initialized")
 
         # Start Socket Mode in a separate thread so it doesn't block
