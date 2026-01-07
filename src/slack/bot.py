@@ -442,8 +442,8 @@ class SlackBot:
                 )
             return
 
-        # Database debug command
-        if any(kw in message_lower for kw in ["debug db", "debug database", "db stats", "database stats"]):
+        # Database debug command (including common typos)
+        if any(kw in message_lower for kw in ["debug db", "debug bd", "debug database", "db stats", "database stats", "db debug"]):
             self._handle_debug_db(channel, client)
             return
 
