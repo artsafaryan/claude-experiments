@@ -426,6 +426,22 @@ class SlackBot:
             self._handle_manual_email_check(channel, client)
             return
 
+        # Direct command to show approval cards (bypass Claude)
+        if any(kw in message_lower for kw in ["show cards", "show drafts", "display cards", "display drafts", "send cards", "show approvals", "display approvals"]):
+            pending = self.repo.get_pending_approvals()
+            if pending:
+                client.chat_postMessage(
+                    channel=channel,
+                    text=f"📋 Sending {len(pending)} approval card(s)...",
+                )
+                self._send_approvals_to_channel(channel, client)
+            else:
+                client.chat_postMessage(
+                    channel=channel,
+                    text="No pending approvals to show.",
+                )
+            return
+
         # ========== CLAUDE-POWERED RESPONSES ==========
         try:
             # Get current system state for context
