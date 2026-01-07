@@ -873,7 +873,7 @@ _If counts are 0 after processing emails, the database may have been wiped on de
     # ============== Helper Methods ==============
 
     def _send_approvals_to_channel(self, channel: str, client: WebClient):
-        """Send pending approvals to a channel."""
+        """Send pending approvals to a channel in batches (Slack has 50 block limit)."""
         pending = self.repo.get_pending_approvals()
 
         if not pending:
@@ -931,16 +931,29 @@ _If counts are 0 after processing emails, the database may have been wiped on de
                         "platform": influencer.platform if influencer else None,
                     })
 
-        blocks = MessageBuilder.build_approval_batch(approvals_data)
+        # Send in batches of 5 approvals (each card ~8-10 blocks, Slack limit is 50)
+        BATCH_SIZE = 5
+        total = len(approvals_data)
 
-        try:
-            client.chat_postMessage(
-                channel=channel,
-                text=f"{len(pending)} responses ready for approval",
-                blocks=blocks,
-            )
-        except SlackApiError as e:
-            logger.error(f"Error sending approvals: {e}")
+        for i in range(0, total, BATCH_SIZE):
+            batch = approvals_data[i:i + BATCH_SIZE]
+            batch_num = (i // BATCH_SIZE) + 1
+            total_batches = (total + BATCH_SIZE - 1) // BATCH_SIZE
+
+            blocks = MessageBuilder.build_approval_batch(batch)
+
+            try:
+                header = f"📋 Approvals {i + 1}-{min(i + BATCH_SIZE, total)} of {total}"
+                if total_batches > 1:
+                    header += f" (batch {batch_num}/{total_batches})"
+
+                client.chat_postMessage(
+                    channel=channel,
+                    text=header,
+                    blocks=blocks,
+                )
+            except SlackApiError as e:
+                logger.error(f"Error sending approvals batch {batch_num}: {e}")
 
     def _update_card_status(
         self, client: WebClient, channel: str, ts: str, approval_id: str, status_text: str
